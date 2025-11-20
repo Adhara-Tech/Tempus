@@ -19,9 +19,12 @@
                         <label class="form-label">Contraseña</label>
                         <input type="password" class="form-control" name="password" required>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">
+                    <button type="submit" class="btn btn-primary w-100 mb-2">
                         <i class="bi bi-box-arrow-in-right"></i> Entrar
                     </button>
+                    <a href="{{ url_for('google.login') }}" class="btn btn-danger w-100">
+                        <i class="bi bi-google"></i> Iniciar sesión con Google
+                    </a>
                 </form>
             </div>
         </div>

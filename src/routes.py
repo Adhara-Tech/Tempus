@@ -5,12 +5,36 @@ from sqlalchemy import func
 from datetime import datetime, timedelta, date
 from calendar import monthrange
 
-from . import app, db, admin_required, aprobador_required
+from . import app, db, admin_required, aprobador_required, google_bp
 from .utils import  calcular_dias_laborables
 from .models import Usuario, Fichaje, SolicitudVacaciones, SolicitudBaja, Aprobador, Festivo
 from .email_service import enviar_email_solicitud, enviar_email_respuesta
 from .google_calendar import sincronizar_vacaciones_a_google, sincronizar_baja_a_google, eliminar_evento_google
+from flask_dance.consumer import oauth_authorized
+from flask_dance.contrib.google import google
 
+@oauth_authorized.connect_via(google_bp)
+def google_logged_in(blueprint, token):
+    if not google.authorized:
+        return False
+    
+    resp = google.get("/oauth2/v2/userinfo")
+    if not resp.ok:
+        flash("Error al obtener información de Google", "danger")
+        return False
+    
+    google_info = resp.json()
+    email = google_info["email"]
+    
+    user = Usuario.query.filter_by(email=email).first()
+    if user:
+        login_user(user)
+        flash("Inicio de sesión exitoso con Google", "success")
+    else:
+        flash("No existe un usuario con este email.", "danger")
+        return redirect(url_for("login"))
+        
+    return redirect(url_for("index"))
 
 # Rutas de autenticación
 @app.route('/login', methods=['GET', 'POST'])
