@@ -1,55 +1,73 @@
-<h5 class="mb-0">
-    <i class="bi bi-person-circle"></i> {{ item.usuario.nombre }}
-</h5>
-<small>{{ item.usuario.email }}</small>
+{% extends "base.html" %}
+
+{% block title %}Resumen Global{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-file-earmark-bar-graph"></i> Resumen Global</h1>
+    <div class="text-muted">
+        <i class="bi bi-calendar"></i> {{ mes_actual }}/{{ anio_actual }}
+    </div>
 </div>
-<div class="card-body">
-    <h6 class="text-muted mb-3">Información de Vacaciones</h6>
 
-    <div class="d-flex justify-content-between mb-2">
-        <span>Días totales:</span>
-        <strong class="text-primary">{{ item.dias_vacaciones_totales }}</strong>
-    </div>
+{% if resumen_usuarios %}
+<div class="row">
+    {% for item in resumen_usuarios %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-circle"></i> {{ item.usuario.nombre }}
+                </h5>
+                <small>{{ item.usuario.email }}</small>
+            </div>
+            <div class="card-body">
+                <h6 class="text-muted mb-3">Información de Vacaciones</h6>
 
-    <div class="d-flex justify-content-between mb-2">
-        <span>Días disfrutados:</span>
-        <strong class="text-warning">{{ item.dias_disfrutados }}</strong>
-    </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Días totales:</span>
+                    <strong class="text-primary">{{ item.dias_vacaciones_totales }}</strong>
+                </div>
 
-    <div class="d-flex justify-content-between mb-3">
-        <span>Días restantes:</span>
-        <strong class="text-success">{{ item.dias_restantes }}</strong>
-    </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Días disfrutados:</span>
+                    <strong class="text-warning">{{ item.dias_disfrutados }}</strong>
+                </div>
 
-    <div class="progress mb-3" style="height: 25px;">
-        {% set porcentaje = (item.dias_disfrutados / item.dias_vacaciones_totales * 100) if item.dias_vacaciones_totales
-        > 0 else 0 %}
-        <div class="progress-bar {% if porcentaje > 80 %}bg-danger{% elif porcentaje > 50 %}bg-warning{% else %}bg-success{% endif %}"
-            role="progressbar" style="width: {{ porcentaje }}%" aria-valuenow="{{ porcentaje }}" aria-valuemin="0"
-            aria-valuemax="100">
-            {{ "%.0f"|format(porcentaje) }}%
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Días restantes:</span>
+                    <strong class="text-success">{{ item.dias_restantes }}</strong>
+                </div>
+
+                <div class="progress mb-3" style="height: 25px;">
+                    {% set porcentaje = (item.dias_disfrutados / item.dias_vacaciones_totales * 100) if
+                    item.dias_vacaciones_totales > 0 else 0 %}
+                    <div class="progress-bar {% if porcentaje > 80 %}bg-danger{% elif porcentaje > 50 %}bg-warning{% else %}bg-success{% endif %}"
+                        role="progressbar" style="width: {{ porcentaje }}%" aria-valuenow="{{ porcentaje }}"
+                        aria-valuemin="0" aria-valuemax="100">
+                        {{ "%.0f"|format(porcentaje) }}%
+                    </div>
+                </div>
+
+                <hr>
+
+                <h6 class="text-muted mb-2">Fichajes</h6>
+                <div class="d-flex justify-content-between">
+                    <span>Total registrados:</span>
+                    <strong>{{ item.fichajes|length }}</strong>
+                </div>
+
+                {% if item.fichajes %}
+                {% set total_horas = item.fichajes|map(attribute='horas_trabajadas')|map('float')|sum %}
+                <div class="d-flex justify-content-between">
+                    <span>Horas totales:</span>
+                    <strong class="text-info">{{ "%.2f"|format(total_horas) }}h</strong>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
-
-    <hr>
-
-    <h6 class="text-muted mb-2">Fichajes</h6>
-    <div class="d-flex justify-content-between">
-        <span>Total registrados:</span>
-        <strong>{{ item.fichajes|length }}</strong>
-    </div>
-
-    {% if item.fichajes %}
-    {% set total_horas = item.fichajes|map(attribute='horas_trabajadas')|map('float')|sum %}
-    <div class="d-flex justify-content-between">
-        <span>Horas totales:</span>
-        <strong class="text-info">{{ "%.2f"|format(total_horas) }}h</strong>
-    </div>
-    {% endif %}
-</div>
-</div>
-</div>
-{% endfor %}
+    {% endfor %}
 </div>
 
 <!-- Tabla resumen general -->
