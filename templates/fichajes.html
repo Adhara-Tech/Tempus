@@ -61,7 +61,13 @@
                         <td>{{ fichaje.fecha.strftime('%d/%m/%Y') }}</td>
                         <td>{{ fichaje.hora_entrada.strftime('%H:%M') }}</td>
                         <td>{{ fichaje.hora_salida.strftime('%H:%M') }}</td>
-                        <td>{{ "%.2f"|format(fichaje.horas_trabajadas()) }}h</td>
+                        <td>
+                            {{ "%.2f"|format(fichaje.horas_trabajadas()) }}h
+                            {% if fichaje.editado %}
+                            <span class="badge bg-warning text-dark"
+                                title="Este fichaje ha sido modificado">Editado</span>
+                            {% endif %}
+                        </td>
                         <td>
                             <a href="{{ url_for('editar_fichaje', id=fichaje.id) }}" class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i>

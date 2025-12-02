@@ -7,7 +7,7 @@ from calendar import monthrange
 
 from . import app, db, admin_required, aprobador_required, google_bp
 from .utils import  calcular_dias_laborables
-from .models import Usuario, Fichaje, SolicitudVacaciones, SolicitudBaja, Aprobador, Festivo
+from .models import Usuario, Fichaje, SolicitudVacaciones, SolicitudBaja, Aprobador, Festivo, FichajeLog
 from .email_service import enviar_email_solicitud, enviar_email_respuesta
 from .google_calendar import sincronizar_vacaciones_a_google, sincronizar_baja_a_google, eliminar_evento_google
 from flask_dance.consumer import oauth_authorized
@@ -619,6 +619,30 @@ def admin_eliminar_festivo(id):
     db.session.commit()
     flash('Festivo eliminado correctamente', 'success')
     return redirect(url_for('admin_festivos'))
+
+@app.route('/admin/auditoria')
+@admin_required
+def admin_auditoria():
+    usuario_nombre = request.args.get('usuario')
+    fecha_inicio = request.args.get('fecha_inicio')
+    fecha_fin = request.args.get('fecha_fin')
+    
+    query = FichajeLog.query.join(Fichaje).join(Usuario, Fichaje.usuario_id == Usuario.id)
+    
+    if usuario_nombre:
+        query = query.filter(Usuario.nombre.ilike(f'%{usuario_nombre}%'))
+        
+    if fecha_inicio:
+        query = query.filter(FichajeLog.fecha_cambio >= datetime.strptime(fecha_inicio, '%Y-%m-%d'))
+        
+    if fecha_fin:
+        # Add one day to include the end date fully
+        fin = datetime.strptime(fecha_fin, '%Y-%m-%d') + timedelta(days=1)
+        query = query.filter(FichajeLog.fecha_cambio < fin)
+        
+    logs = query.order_by(FichajeLog.fecha_cambio.desc()).all()
+    
+    return render_template('admin/auditoria.html', logs=logs)
 
 @app.route('/perfil', methods=['GET', 'POST'])
 @login_required

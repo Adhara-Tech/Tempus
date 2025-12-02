@@ -158,6 +158,10 @@
         <a href="{{ url_for('admin_resumen') }}" {% if request.endpoint=='admin_resumen' %}class="active" {% endif %}>
             <i class="bi bi-file-earmark-bar-graph"></i> Resumen Global
         </a>
+        <a href="{{ url_for('admin_auditoria') }}" {% if request.endpoint=='admin_auditoria' %}class="active" {% endif
+            %}>
+            <i class="bi bi-shield-check"></i> Auditoría
+        </a>
         {% endif %}
     </div>
     {% endif %}
