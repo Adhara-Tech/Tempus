@@ -5,9 +5,14 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-clock"></i> Mis Fichajes</h1>
-    <a href="{{ url_for('crear_fichaje') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Nuevo Fichaje
-    </a>
+    <div class="btn-group">
+        <button onclick="exportTableToCSV('fichajes.csv')" class="btn btn-success">
+            <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+        </button>
+        <a href="{{ url_for('crear_fichaje') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Nuevo Fichaje
+        </a>
+    </div>
 </div>
 
 <div class="card mb-4">
@@ -16,9 +21,11 @@
             <div class="col-auto">
                 <label class="form-label">Mes</label>
                 <select name="mes" class="form-select" onchange="this.form.submit()">
-                    {% set meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+                    {% set meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto',
+                    'Septiembre', 'Octubre',
+                    'Noviembre', 'Diciembre'] %}
                     {% for m in range(1, 13) %}
-                        <option value="{{ m }}" {% if m == mes_actual %}selected{% endif %}>{{ meses[m-1] }}</option>
+                    <option value="{{ m }}" {% if m==mes_actual %}selected{% endif %}>{{ meses[m-1] }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -26,7 +33,7 @@
                 <label class="form-label">Año</label>
                 <select name="anio" class="form-select" onchange="this.form.submit()">
                     {% for a in range(2023, 2026) %}
-                        <option value="{{ a }}" {% if a == anio_actual %}selected{% endif %}>{{ a }}</option>
+                    <option value="{{ a }}" {% if a==anio_actual %}selected{% endif %}>{{ a }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -59,8 +66,10 @@
                             <a href="{{ url_for('editar_fichaje', id=fichaje.id) }}" class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form method="POST" action="{{ url_for('eliminar_fichaje', id=fichaje.id) }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar este fichaje?')">
+                            <form method="POST" action="{{ url_for('eliminar_fichaje', id=fichaje.id) }}"
+                                style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('¿Eliminar este fichaje?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -75,4 +84,103 @@
         {% endif %}
     </div>
 </div>
+<script>
+    function exportTableToCSV(filename) {
+        var csv = [];
+        var rows = document.querySelectorAll("table tr");
+
+        for (var i = 0; i < rows.length; i++) {
+            var row = [], cols = rows[i].querySelectorAll("td, th");
+
+            // Skip the last column (Acciones)
+            for (var j = 0; j < cols.length - 1; j++) {
+                var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").replace(/(\s\s)/gm, " ");
+                data = data.replace(/"/g, '""');
+                row.push('"' + data + '"');
+            }
+
+            csv.push(row.join(","));
+        }
+
+        // Download CSV file
+        downloadCSV(csv.join("\n"), filename);
+    }
+
+    function downloadCSV(csv, filename) {
+        var csvFile;
+        var downloadLink;
+
+        // CSV file
+        csvFile = new Blob([csv], { type: "text/csv" });
+
+        // Download link
+        downloadLink = document.createElement("a");
+
+        // File name
+        downloadLink.download = filename;
+
+        // Create a link to the file
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+
+        // Hide download link
+        downloadLink.style.display = "none";
+
+        // Add the link to DOM
+        document.body.appendChild(downloadLink);
+
+        // Click download link
+        downloadLink.click();
+    }
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function exportTableToCSV(filename) {
+        var csv = [];
+        var rows = document.querySelectorAll("table tr");
+
+        for (var i = 0; i < rows.length; i++) {
+            var row = [], cols = rows[i].querySelectorAll("td, th");
+
+            // Skip the last column (Acciones)
+            for (var j = 0; j < cols.length - 1; j++) {
+                var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").replace(/(\s\s)/gm, " ");
+                data = data.replace(/"/g, '""');
+                row.push('"' + data + '"');
+            }
+
+            csv.push(row.join(","));
+        }
+
+        // Download CSV file
+        downloadCSV(csv.join("\n"), filename);
+    }
+
+    function downloadCSV(csv, filename) {
+        var csvFile;
+        var downloadLink;
+
+        // CSV file
+        csvFile = new Blob([csv], { type: "text/csv" });
+
+        // Download link
+        downloadLink = document.createElement("a");
+
+        // File name
+        downloadLink.download = filename;
+
+        // Create a link to the file
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+
+        // Hide download link
+        downloadLink.style.display = "none";
+
+        // Add the link to DOM
+        document.body.appendChild(downloadLink);
+
+        // Click download link
+        downloadLink.click();
+    }
+</script>
 {% endblock %}
