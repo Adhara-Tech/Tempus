@@ -33,7 +33,7 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-send"></i> Enviar Solicitud
                         </button>
-                        <a href="{{ url_for('vacaciones') }}" class="btn btn-secondary">Cancelar</a>
+                        <a href="{{ url_for('ausencias.listar_vacaciones') }}" class="btn btn-secondary">Cancelar</a>
                     </div>
                 </form>
             </div>
@@ -71,11 +71,10 @@ async function calcularDias() {
     const diasInfo = document.getElementById('diasInfo');
     const diasCount = document.getElementById('diasCount');
     
-    // Solo ejecutar si ambas fechas están seleccionadas
     if (inicio && fin) {
         try {
-            // Llamada a la ruta que creamos en app.py
-            const response = await fetch("{{ url_for('calcular_dias_ajax') }}", {
+            // RUTA AJAX CORREGIDA (main.calcular_dias_ajax)
+            const response = await fetch("{{ url_for('main.calcular_dias_ajax') }}", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -90,7 +89,6 @@ async function calcularDias() {
                 diasInfo.classList.remove('alert-danger');
                 diasInfo.classList.add('alert-info');
             } else {
-                // Mostrar error si la fecha de fin es anterior o hay otro problema
                 diasCount.textContent = `Error: ${data.error || 'Cálculo no disponible'}`;
                 diasInfo.classList.remove('alert-info');
                 diasInfo.classList.add('alert-danger');
@@ -98,13 +96,11 @@ async function calcularDias() {
             diasInfo.style.display = 'block';
 
         } catch (error) {
-            // Error de conexión
             diasCount.textContent = 'Error al conectar con el servidor.';
             diasInfo.classList.add('alert-danger');
             diasInfo.style.display = 'block';
         }
     } else {
-        // Ocultar el cuadro si falta alguna fecha
         diasInfo.style.display = 'none';
     }
 }

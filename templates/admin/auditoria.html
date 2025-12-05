@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-shield-check"></i> Auditoría de Fichajes</h1>
+    <h1><i class="bi bi-shield-check"></i> Auditoría (Histórico de Cambios)</h1>
 </div>
 
 <div class="card mb-4">
@@ -16,12 +16,12 @@
                     value="{{ request.args.get('usuario', '') }}">
             </div>
             <div class="col-md-3">
-                <label class="form-label">Fecha Inicio</label>
+                <label class="form-label">Fecha Modificación (Desde)</label>
                 <input type="date" class="form-control" name="fecha_inicio"
                     value="{{ request.args.get('fecha_inicio', '') }}">
             </div>
             <div class="col-md-3">
-                <label class="form-label">Fecha Fin</label>
+                <label class="form-label">Fecha Modificación (Hasta)</label>
                 <input type="date" class="form-control" name="fecha_fin"
                     value="{{ request.args.get('fecha_fin', '') }}">
             </div>
@@ -37,46 +37,51 @@
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover align-middle">
                 <thead>
                     <tr>
-                        <th>Fecha Cambio</th>
-                        <th>Fichaje Original</th>
-                        <th>Editor</th>
-                        <th>Cambio</th>
-                        <th>Motivo</th>
+                        <th>Fecha Acción</th>
+                        <th>Tipo</th>
+                        <th>Empleado</th>
+                        <th>Fichaje Afectado</th>
+                        <th>Datos Registrados (Versión)</th>
+                        <th>Motivo Rectificación</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for log in logs %}
-                    <tr>
-                        <td>{{ log.fecha_cambio.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <tr class="{% if log.tipo_accion == 'eliminacion' %}table-danger{% elif log.tipo_accion == 'modificacion' %}table-warning{% endif %}">
                         <td>
-                            <div><i class="bi bi-person"></i> {{ log.fichaje.usuario.nombre }}</div>
-                            <small class="text-muted">{{ log.fichaje.fecha.strftime('%d/%m/%Y') }}</small>
+                            {{ log.fecha_creacion.strftime('%d/%m/%Y') }}<br>
+                            <small class="text-muted">{{ log.fecha_creacion.strftime('%H:%M:%S') }}</small>
                         </td>
-                        <td>{{ log.editor.nombre }}</td>
                         <td>
-                            {% if log.anterior_entrada %}
-                            <div>
-                                <span class="badge bg-secondary">{{ log.anterior_entrada.strftime('%H:%M') }}</span>
-                                <i class="bi bi-arrow-right"></i>
-                                <span class="badge bg-success">{{ log.fichaje.hora_entrada.strftime('%H:%M') }}</span>
-                            </div>
-                            {% endif %}
-                            {% if log.anterior_salida %}
-                            <div>
-                                <span class="badge bg-secondary">{{ log.anterior_salida.strftime('%H:%M') }}</span>
-                                <i class="bi bi-arrow-right"></i>
-                                <span class="badge bg-success">{{ log.fichaje.hora_salida.strftime('%H:%M') }}</span>
-                            </div>
+                            {% if log.tipo_accion == 'modificacion' %}
+                                <span class="badge bg-warning text-dark">MODIFICACIÓN</span>
+                            {% elif log.tipo_accion == 'eliminacion' %}
+                                <span class="badge bg-danger">ELIMINACIÓN</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ log.tipo_accion|upper }}</span>
                             {% endif %}
                         </td>
-                        <td>{{ log.motivo }}</td>
+                        <td>{{ log.usuario.nombre }}</td>
+                        <td>{{ log.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            <div><strong>Entrada:</strong> {{ log.hora_entrada.strftime('%H:%M') }}</div>
+                            <div><strong>Salida:</strong> {{ log.hora_salida.strftime('%H:%M') }}</div>
+                            <small class="text-muted">Versión #{{ log.version }}</small>
+                        </td>
+                        <td>
+                            {% if log.motivo_rectificacion %}
+                                {{ log.motivo_rectificacion }}
+                            {% else %}
+                                <span class="text-muted fst-italic">- Sin motivo -</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted">No hay registros de auditoría.</td>
+                        <td colspan="6" class="text-center text-muted">No hay registros históricos de modificaciones.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

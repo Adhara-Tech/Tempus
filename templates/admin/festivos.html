@@ -12,7 +12,7 @@
         <h5><i class="bi bi-plus-circle"></i> Añadir Nuevo Festivo</h5>
     </div>
     <div class="card-body">
-        <form method="POST" action="{{ url_for('admin_crear_festivo') }}">
+        <form method="POST" action="{{ url_for('admin.admin_crear_festivo') }}">
             <div class="row">
                 <div class="col-md-4">
                     <label class="form-label">Fecha</label>
@@ -53,7 +53,7 @@
                         <td>{{ festivo.fecha.strftime('%d/%m/%Y') }}</td>
                         <td>{{ festivo.descripcion }}</td>
                         <td>
-                            <form method="POST" action="{{ url_for('admin_eliminar_festivo', id=festivo.id) }}" style="display:inline;">
+                            <form method="POST" action="{{ url_for('admin.admin_eliminar_festivo', id=festivo.id) }}" style="display:inline;">
                                 <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar este festivo?')">
                                     <i class="bi bi-trash"></i>
                                 </button>

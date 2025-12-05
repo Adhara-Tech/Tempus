@@ -5,8 +5,8 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-bandaid"></i> Mis Solicitudes de Baja</h1>
-    <a href="{{ url_for('solicitar_baja') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Nueva Solicitud de Baja
+    <a href="{{ url_for('ausencias.solicitar_baja') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nueva Solicitud
     </a>
 </div>
 
@@ -14,57 +14,55 @@
     <div class="card-body">
         {% if solicitudes %}
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover align-middle">
                 <thead>
                     <tr>
                         <th>Fecha Solicitud</th>
+                        <th>Tipo</th>
                         <th>Desde</th>
                         <th>Hasta</th>
-                        <th>Días</th>
-                        <th>Motivo</th>
                         <th>Estado</th>
-                        <th>Aprobador</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for sol in solicitudes %}
                     <tr>
-                        <td>{{ sol.fecha_solicitud.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>{{ sol.fecha_solicitud.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            {% if sol.tipo_ausencia %}
+                                <span class="badge bg-info text-dark">{{ sol.tipo_ausencia.nombre }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Genérica</span>
+                            {% endif %}
+                        </td>
                         <td>{{ sol.fecha_inicio.strftime('%d/%m/%Y') }}</td>
                         <td>{{ sol.fecha_fin.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ sol.dias_solicitados }}</td>
-                        <td>{{ sol.motivo }}</td>
                         <td>
                             {% if sol.estado == 'pendiente' %}
                             <span class="badge bg-warning">Pendiente</span>
                             {% elif sol.estado == 'aprobada' %}
                             <span class="badge bg-success">Aprobada</span>
-                            {% else %}
-                            <span class="badge bg-danger">Rechazada</span>
+                            {% elif sol.estado == 'rechazada' %}
+                            <span class="badge bg-danger">Rechazada/Cancelada</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if sol.aprobador %}
-                            {{ sol.aprobador.nombre }}
-                            <br><small class="text-muted">{{ sol.fecha_respuesta.strftime('%d/%m/%Y') if sol.fecha_respuesta else '' }}</small>
-                            {% else %}
-                            <span class="text-muted">-</span>
+                            {% if sol.estado == 'pendiente' %}
+                            <form method="POST" action="{{ url_for('ausencias.cancelar_baja', id=sol.id) }}" style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Cancelar esta solicitud?')">
+                                    <i class="bi bi-x-circle"></i> Cancelar
+                                </button>
+                            </form>
                             {% endif %}
                         </td>
                     </tr>
-                    {% if sol.comentarios %}
-                    <tr>
-                        <td colspan="7" class="bg-light">
-                            <small><strong>Comentarios:</strong> {{ sol.comentarios }}</small>
-                        </td>
-                    </tr>
-                    {% endif %}
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <p class="text-muted">No has realizado ninguna solicitud de baja.</p>
+        <p class="text-muted">No tienes solicitudes activas.</p>
         {% endif %}
     </div>
 </div>

@@ -35,14 +35,14 @@
                 <label class="form-label">Motivo del cambio <span class="text-danger">*</span></label>
                 <textarea class="form-control" name="motivo" rows="2"
                     required>{{ request.form.get('motivo', '') }}</textarea>
-                <div class="form-text">Por favor, indica el motivo de la modificación.</div>
+                <div class="form-text">Esto generará una nueva versión del fichaje (la anterior quedará como histórico).</div>
             </div>
 
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-save"></i> Guardar
                 </button>
-                <a href="{{ url_for('fichajes') }}" class="btn btn-secondary">Cancelar</a>
+                <a href="{{ url_for('fichajes.listar') }}" class="btn btn-secondary">Cancelar</a>
             </div>
         </form>
     </div>

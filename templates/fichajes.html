@@ -9,7 +9,7 @@
         <button onclick="exportTableToCSV('fichajes.csv')" class="btn btn-success">
             <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
         </button>
-        <a href="{{ url_for('crear_fichaje') }}" class="btn btn-primary">
+        <a href="{{ url_for('fichajes.crear') }}" class="btn btn-primary">
             <i class="bi bi-plus-circle"></i> Nuevo Fichaje
         </a>
     </div>
@@ -52,6 +52,7 @@
                         <th>Entrada</th>
                         <th>Salida</th>
                         <th>Horas</th>
+                        <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -63,19 +64,24 @@
                         <td>{{ fichaje.hora_salida.strftime('%H:%M') }}</td>
                         <td>
                             {{ "%.2f"|format(fichaje.horas_trabajadas()) }}h
-                            {% if fichaje.editado %}
-                            <span class="badge bg-warning text-dark"
-                                title="Este fichaje ha sido modificado">Editado</span>
+                        </td>
+                        <td>
+                            {% if fichaje.version > 1 %}
+                            <span class="badge bg-warning text-dark" title="Rectificado (v{{ fichaje.version }})">
+                                <i class="bi bi-pencil-square"></i> Rectificado
+                            </span>
+                            {% else %}
+                            <span class="badge bg-success">Original</span>
                             {% endif %}
                         </td>
                         <td>
-                            <a href="{{ url_for('editar_fichaje', id=fichaje.id) }}" class="btn btn-sm btn-warning">
+                            <a href="{{ url_for('fichajes.editar', id=fichaje.id) }}" class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form method="POST" action="{{ url_for('eliminar_fichaje', id=fichaje.id) }}"
+                            <form method="POST" action="{{ url_for('fichajes.eliminar', id=fichaje.id) }}"
                                 style="display:inline;">
                                 <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('¿Eliminar este fichaje?')">
+                                    onclick="return confirm('¿Seguro que deseas eliminar este fichaje? Se guardará registro de la eliminación.')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -92,100 +98,29 @@
 </div>
 <script>
     function exportTableToCSV(filename) {
+        // ... (Mismo script que tenías) ...
         var csv = [];
         var rows = document.querySelectorAll("table tr");
-
         for (var i = 0; i < rows.length; i++) {
             var row = [], cols = rows[i].querySelectorAll("td, th");
-
-            // Skip the last column (Acciones)
             for (var j = 0; j < cols.length - 1; j++) {
                 var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").replace(/(\s\s)/gm, " ");
                 data = data.replace(/"/g, '""');
                 row.push('"' + data + '"');
             }
-
             csv.push(row.join(","));
         }
-
-        // Download CSV file
         downloadCSV(csv.join("\n"), filename);
     }
-
     function downloadCSV(csv, filename) {
         var csvFile;
         var downloadLink;
-
-        // CSV file
         csvFile = new Blob([csv], { type: "text/csv" });
-
-        // Download link
         downloadLink = document.createElement("a");
-
-        // File name
         downloadLink.download = filename;
-
-        // Create a link to the file
         downloadLink.href = window.URL.createObjectURL(csvFile);
-
-        // Hide download link
         downloadLink.style.display = "none";
-
-        // Add the link to DOM
         document.body.appendChild(downloadLink);
-
-        // Click download link
-        downloadLink.click();
-    }
-</script>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    function exportTableToCSV(filename) {
-        var csv = [];
-        var rows = document.querySelectorAll("table tr");
-
-        for (var i = 0; i < rows.length; i++) {
-            var row = [], cols = rows[i].querySelectorAll("td, th");
-
-            // Skip the last column (Acciones)
-            for (var j = 0; j < cols.length - 1; j++) {
-                var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").replace(/(\s\s)/gm, " ");
-                data = data.replace(/"/g, '""');
-                row.push('"' + data + '"');
-            }
-
-            csv.push(row.join(","));
-        }
-
-        // Download CSV file
-        downloadCSV(csv.join("\n"), filename);
-    }
-
-    function downloadCSV(csv, filename) {
-        var csvFile;
-        var downloadLink;
-
-        // CSV file
-        csvFile = new Blob([csv], { type: "text/csv" });
-
-        // Download link
-        downloadLink = document.createElement("a");
-
-        // File name
-        downloadLink.download = filename;
-
-        // Create a link to the file
-        downloadLink.href = window.URL.createObjectURL(csvFile);
-
-        // Hide download link
-        downloadLink.style.display = "none";
-
-        // Add the link to DOM
-        document.body.appendChild(downloadLink);
-
-        // Click download link
         downloadLink.click();
     }
 </script>

@@ -9,7 +9,7 @@
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-clock"></i> Fichajes</h5>
                 <p class="card-text">Registra tus entradas y salidas</p>
-                <a href="{{ url_for('crear_fichaje') }}" class="btn btn-light btn-sm">Fichar ahora</a>
+                <a href="{{ url_for('fichajes.crear') }}" class="btn btn-light btn-sm">Fichar ahora</a>
             </div>
         </div>
     </div>
@@ -19,7 +19,7 @@
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-calendar-check"></i> Vacaciones</h5>
                 <p class="card-text">Días disponibles: {{ current_user.dias_vacaciones_disponibles() }}</p>
-                <a href="{{ url_for('solicitar_vacaciones') }}" class="btn btn-light btn-sm">Solicitar</a>
+                <a href="{{ url_for('ausencias.solicitar_vacaciones') }}" class="btn btn-light btn-sm">Solicitar</a>
             </div>
         </div>
     </div>
@@ -29,7 +29,7 @@
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-bar-chart"></i> Resumen</h5>
                 <p class="card-text">Ver horas trabajadas</p>
-                <a href="{{ url_for('resumen') }}" class="btn btn-light btn-sm">Ver resumen</a>
+                <a href="{{ url_for('fichajes.resumen') }}" class="btn btn-light btn-sm">Ver resumen</a>
             </div>
         </div>
     </div>
@@ -39,7 +39,7 @@
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-calendar3"></i> Cronograma</h5>
                 <p class="card-text">Ver calendario de ausencias</p>
-                <a href="{{ url_for('cronograma') }}" class="btn btn-light btn-sm">Ver cronograma</a>
+                <a href="{{ url_for('main.cronograma') }}" class="btn btn-light btn-sm">Ver cronograma</a>
             </div>
         </div>
     </div>
@@ -53,7 +53,7 @@
         </div>
         <div class="card-body">
             <p>Tienes <strong>{{ solicitudes_pendientes_count }}</strong> solicitud(es) (vacaciones o bajas) pendiente(s) de aprobar.</p>
-            <a href="{{ url_for('aprobar_solicitudes') }}" class="btn btn-primary">Ver solicitudes</a>
+            <a href="{{ url_for('ausencias.aprobar_solicitudes') }}" class="btn btn-primary">Ver solicitudes</a>
         </div>
     </div>
     {% endif %}

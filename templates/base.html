@@ -68,7 +68,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
                 <i class="bi bi-clock-history"></i> Sistema de Fichaje
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -84,10 +84,10 @@
                             <span class="badge bg-secondary">{{ current_user.rol }}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{{ url_for('perfil') }}">
+                            <li><a class="dropdown-item" href="{{ url_for('main.perfil') }}">
                                     <i class="bi bi-key"></i> Cambiar contraseña
                                 </a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
                                     <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
                                 </a></li>
                         </ul>
@@ -100,42 +100,42 @@
 
     {% if current_user.is_authenticated %}
     <div class="sidebar">
-        <a href="{{ url_for('index') }}" {% if request.endpoint=='index' %}class="active" {% endif %}>
+        <a href="{{ url_for('main.index') }}" {% if request.endpoint=='main.index' %}class="active" {% endif %}>
             <i class="bi bi-house-door"></i> Inicio
         </a>
 
         <div class="text px-3 mt-3 mb-2 small" style="color: white;">FICHAJE</div>
-        <a href="{{ url_for('fichajes') }}" {% if 'fichajes' in request.endpoint %}class="active" {% endif %}>
+        <a href="{{ url_for('fichajes.listar') }}" {% if 'fichajes' in request.endpoint %}class="active" {% endif %}>
             <i class="bi bi-clock"></i> Mis Fichajes
         </a>
-        <a href="{{ url_for('crear_fichaje') }}">
+        <a href="{{ url_for('fichajes.crear') }}">
             <i class="bi bi-plus-circle"></i> Nuevo Fichaje
         </a>
-        <a href="{{ url_for('resumen') }}" {% if request.endpoint=='resumen' %}class="active" {% endif %}>
+        <a href="{{ url_for('fichajes.resumen') }}" {% if request.endpoint=='fichajes.resumen' %}class="active" {% endif %}>
             <i class="bi bi-bar-chart"></i> Resumen
         </a>
 
         <div class="text px-3 mt-3 mb-2 small" style="color: white;">AUSENCIAS</div>
-        <a href="{{ url_for('vacaciones') }}" {% if request.endpoint=='vacaciones' %}class="active" {% endif %}>
+        <a href="{{ url_for('ausencias.listar_vacaciones') }}" {% if 'vacaciones' in request.endpoint %}class="active" {% endif %}>
             <i class="bi bi-calendar-check"></i> Mis Vacaciones
         </a>
-        <a href="{{ url_for('solicitar_vacaciones') }}">
+        <a href="{{ url_for('ausencias.solicitar_vacaciones') }}">
             <i class="bi bi-plus-circle"></i> Solicitar Vacaciones
         </a>
 
-        <a href="{{ url_for('bajas') }}" {% if request.endpoint=='bajas' %}class="active" {% endif %}>
+        <a href="{{ url_for('ausencias.listar_bajas') }}" {% if 'bajas' in request.endpoint %}class="active" {% endif %}>
             <i class="bi bi-bandaid"></i> Mis Bajas
         </a>
-        <a href="{{ url_for('solicitar_baja') }}">
+        <a href="{{ url_for('ausencias.solicitar_baja') }}">
             <i class="bi bi-plus-circle"></i> Solicitar Baja
         </a>
-        <a href="{{ url_for('cronograma') }}" {% if request.endpoint=='cronograma' %}class="active" {% endif %}>
+        <a href="{{ url_for('main.cronograma') }}" {% if request.endpoint=='main.cronograma' %}class="active" {% endif %}>
             <i class="bi bi-calendar3"></i> Cronograma
         </a>
 
         {% if current_user.rol in ['aprobador', 'admin'] %}
         <div class="text px-3 mt-3 mb-2 small" style="color: white;">APROBACIÓN</div>
-        <a href="{{ url_for('aprobar_solicitudes') }}" {% if request.endpoint=='aprobar_solicitudes' %}class="active" {%
+        <a href="{{ url_for('ausencias.aprobar_solicitudes') }}" {% if request.endpoint=='ausencias.aprobar_solicitudes' %}class="active" {%
             endif %}>
             <i class="bi bi-check-circle"></i> Aprobar Solicitudes
         </a>
@@ -143,22 +143,25 @@
 
         {% if current_user.rol == 'admin' %}
         <div class="text px-3 mt-3 mb-2 small" style="color: white;">ADMINISTRACIÓN</div>
-        <a href="{{ url_for('admin_usuarios') }}" {% if 'admin_usuarios' in request.endpoint %}class="active" {% endif
+        <a href="{{ url_for('admin.admin_usuarios') }}" {% if 'admin_usuarios' in request.endpoint %}class="active" {% endif
             %}>
             <i class="bi bi-people"></i> Usuarios
         </a>
-        <a href="{{ url_for('admin_aprobadores') }}" {% if 'admin_aprobadores' in request.endpoint %}class="active" {%
+        <a href="{{ url_for('admin.admin_aprobadores') }}" {% if 'admin_aprobadores' in request.endpoint %}class="active" {%
             endif %}>
             <i class="bi bi-person-check"></i> Aprobadores
         </a>
-        <a href="{{ url_for('admin_festivos') }}" {% if 'admin_festivos' in request.endpoint %}class="active" {% endif
+        <a href="{{ url_for('admin.admin_tipos_ausencia') }}" {% if 'admin_tipos' in request.endpoint %}class="active" {% endif %}>
+            <i class="bi bi-clipboard-pulse"></i> Tipos de Ausencia
+        </a>
+        <a href="{{ url_for('admin.admin_festivos') }}" {% if 'admin_festivos' in request.endpoint %}class="active" {% endif
             %}>
             <i class="bi bi-calendar-event"></i> Festivos
         </a>
-        <a href="{{ url_for('admin_resumen') }}" {% if request.endpoint=='admin_resumen' %}class="active" {% endif %}>
+        <a href="{{ url_for('admin.admin_resumen') }}" {% if request.endpoint=='admin.admin_resumen' %}class="active" {% endif %}>
             <i class="bi bi-file-earmark-bar-graph"></i> Resumen Global
         </a>
-        <a href="{{ url_for('admin_auditoria') }}" {% if request.endpoint=='admin_auditoria' %}class="active" {% endif
+        <a href="{{ url_for('admin.admin_auditoria') }}" {% if request.endpoint=='admin.admin_auditoria' %}class="active" {% endif
             %}>
             <i class="bi bi-shield-check"></i> Auditoría
         </a>

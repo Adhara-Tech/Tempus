@@ -3,11 +3,11 @@
 {% block title %}Aprobar Solicitudes{% endblock %}
 
 {% block content %}
-<h1 class="mb-4"><i class="bi bi-check-circle"></i> Solicitudes Pendientes de Aprobación</h1>
+<h1 class="mb-4"><i class="bi bi-check-circle"></i> Solicitudes Pendientes</h1>
 
 <div class="card mb-4">
     <div class="card-header bg-success text-white">
-        <h5><i class="bi bi-calendar-check"></i> Solicitudes de Vacaciones</h5>
+        <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Vacaciones</h5>
     </div>
     <div class="card-body">
         {% if solicitudes_vac %}
@@ -15,38 +15,32 @@
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>Usuario</th>
-                        <th>Fecha Solicitud</th>
+                        <th>Empleado</th>
                         <th>Desde</th>
                         <th>Hasta</th>
                         <th>Días</th>
-                        <th>Motivo</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for sol in solicitudes_vac %}
                     <tr>
-                        <td><strong>{{ sol.usuario.nombre }}</strong><br><small>{{ sol.usuario.email }}</small></td>
-                        <td>{{ sol.fecha_solicitud.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            <strong>{{ sol.usuario.nombre }}</strong>
+                            {% if sol.version > 1 %}
+                                <span class="badge bg-warning text-dark ms-1">Modificada (v{{sol.version}})</span>
+                            {% endif %}
+                        </td>
                         <td>{{ sol.fecha_inicio.strftime('%d/%m/%Y') }}</td>
                         <td>{{ sol.fecha_fin.strftime('%d/%m/%Y') }}</td>
-                        <td><span class="badge bg-info">{{ sol.dias_solicitados }} días</span></td>
-                        <td>{{ sol.motivo or '-' }}</td>
+                        <td>{{ sol.dias_solicitados }}</td>
                         <td>
-                            <form method="POST" action="{{ url_for('responder_solicitud', id=sol.id, accion='aprobar') }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('¿Aprobar esta solicitud?')">
-                                    <i class="bi bi-check-lg"></i> Aprobar
-                                </button>
+                            <form method="POST" action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='aprobar') }}" style="display:inline;">
+                                <button class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i></button>
                             </form>
-                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalRechazarVac{{ sol.id }}">
-                                <i class="bi bi-x-lg"></i> Rechazar
-                            </button>
-                            
-                            <div class="modal fade" id="modalRechazarVac{{ sol.id }}" tabindex="-1">
-                                <form method="POST" action="{{ url_for('responder_solicitud', id=sol.id, accion='rechazar') }}">
-                                    </form>
-                            </div>
+                            <form method="POST" action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='rechazar') }}" style="display:inline;">
+                                <button class="btn btn-sm btn-danger"><i class="bi bi-x-lg"></i></button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}
@@ -54,16 +48,14 @@
             </table>
         </div>
         {% else %}
-        <div class="alert alert-info">
-            No hay solicitudes de vacaciones pendientes.
-        </div>
+        <p class="text-muted">No hay vacaciones pendientes.</p>
         {% endif %}
     </div>
 </div>
 
 <div class="card">
     <div class="card-header bg-danger text-white">
-        <h5><i class="bi bi-bandaid"></i> Solicitudes de Bajas</h5>
+        <h5 class="mb-0"><i class="bi bi-bandaid"></i> Bajas y Ausencias</h5>
     </div>
     <div class="card-body">
         {% if solicitudes_bajas %}
@@ -71,38 +63,40 @@
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>Usuario</th>
-                        <th>Fecha Solicitud</th>
+                        <th>Empleado</th>
+                        <th>Tipo</th>
                         <th>Desde</th>
                         <th>Hasta</th>
-                        <th>Días</th>
-                        <th>Motivo</th>
+                        <th>Detalle</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for sol in solicitudes_bajas %}
                     <tr>
-                        <td><strong>{{ sol.usuario.nombre }}</strong><br><small>{{ sol.usuario.email }}</small></td>
-                        <td>{{ sol.fecha_solicitud.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            <strong>{{ sol.usuario.nombre }}</strong>
+                            {% if sol.version > 1 %}
+                                <span class="badge bg-warning text-dark ms-1">v{{sol.version}}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sol.tipo_ausencia %}
+                                <strong>{{ sol.tipo_ausencia.nombre }}</strong>
+                            {% else %}
+                                Baja Genérica
+                            {% endif %}
+                        </td>
                         <td>{{ sol.fecha_inicio.strftime('%d/%m/%Y') }}</td>
                         <td>{{ sol.fecha_fin.strftime('%d/%m/%Y') }}</td>
-                        <td><span class="badge bg-info">{{ sol.dias_solicitados }} días</span></td>
-                        <td>{{ sol.motivo }}</td>
+                        <td><small>{{ sol.motivo }}</small></td>
                         <td>
-                            <form method="POST" action="{{ url_for('responder_baja', id=sol.id, accion='aprobar') }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('¿Aprobar esta solicitud?')">
-                                    <i class="bi bi-check-lg"></i> Aprobar
-                                </button>
+                            <form method="POST" action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='aprobar') }}" style="display:inline;">
+                                <button class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i></button>
                             </form>
-                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalRechazarBaja{{ sol.id }}">
-                                <i class="bi bi-x-lg"></i> Rechazar
-                            </button>
-
-                            <div class="modal fade" id="modalRechazarBaja{{ sol.id }}" tabindex="-1">
-                                <form method="POST" action="{{ url_for('responder_baja', id=sol.id, accion='rechazar') }}">
-                                    </form>
-                            </div>
+                            <form method="POST" action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='rechazar') }}" style="display:inline;">
+                                <button class="btn btn-sm btn-danger"><i class="bi bi-x-lg"></i></button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}
@@ -110,9 +104,7 @@
             </table>
         </div>
         {% else %}
-        <div class="alert alert-info">
-            No hay solicitudes de baja pendientes.
-        </div>
+        <p class="text-muted">No hay bajas pendientes.</p>
         {% endif %}
     </div>
 </div>
