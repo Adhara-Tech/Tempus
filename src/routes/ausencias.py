@@ -1,291 +1,304 @@
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from datetime import datetime
+from datetime import datetime, date
 import uuid
 
 from src import db
-from src.utils import calcular_dias_laborables
-from src.models import SolicitudVacaciones, SolicitudBaja, Aprobador, TipoAusencia
-from src.email_service import enviar_email_solicitud, enviar_email_respuesta
-from src.google_calendar import sincronizar_vacaciones_a_google, sincronizar_baja_a_google
-from src import aprobador_required
+from src.models import SolicitudVacaciones, SolicitudBaja, TipoAusencia, Usuario
+from src.utils import calcular_dias_habiles, verificar_solapamiento
 from . import ausencias_bp
 
-# =======================
-# VACACIONES
-# =======================
+# -------------------------------------------------------------------------
+# GESTIÓN DE VACACIONES
+# -------------------------------------------------------------------------
+
 @ausencias_bp.route('/vacaciones')
 @login_required
 def listar_vacaciones():
-    # Solo mostrar actuales y que no estén "eliminadas" si decidimos usar ese estado
-    solicitudes = SolicitudVacaciones.query.filter_by(usuario_id=current_user.id, es_actual=True).order_by(
-        SolicitudVacaciones.fecha_solicitud.desc()
-    ).all()
+    """Lista el historial de solicitudes de vacaciones del usuario actual."""
+    solicitudes = SolicitudVacaciones.query.filter_by(usuario_id=current_user.id, es_actual=True)\
+        .order_by(SolicitudVacaciones.fecha_solicitud.desc()).all()
     return render_template('vacaciones.html', solicitudes=solicitudes)
+
 
 @ausencias_bp.route('/vacaciones/solicitar', methods=['GET', 'POST'])
 @login_required
 def solicitar_vacaciones():
+    """Formulario y proceso de creación de nueva solicitud de vacaciones."""
     if request.method == 'POST':
-        fecha_inicio = datetime.strptime(request.form.get('fecha_inicio'), '%Y-%m-%d').date()
-        fecha_fin = datetime.strptime(request.form.get('fecha_fin'), '%Y-%m-%d').date()
-        motivo = request.form.get('motivo', '')
+        fecha_inicio_str = request.form.get('fecha_inicio')
+        fecha_fin_str = request.form.get('fecha_fin')
+        motivo = request.form.get('motivo')
+
+        # Conversión de fechas
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            flash('Formato de fechas inválido.', 'danger')
+            return redirect(url_for('ausencias.solicitar_vacaciones'))
         
-        dias_solicitados = calcular_dias_laborables(fecha_inicio, fecha_fin)
+        # 1. Validación Básica de Fechas
+        if fecha_fin < fecha_inicio:
+            flash('La fecha de fin no puede ser anterior a la de inicio.', 'danger')
+            return redirect(url_for('ausencias.solicitar_vacaciones'))
         
+        # 2. Validación de Solapamiento (Overlap)
+        # Comprueba si ya existe otra solicitud (pendiente/aprobada) en ese rango
+        hay_solapamiento, mensaje_error = verificar_solapamiento(
+            current_user.id, fecha_inicio, fecha_fin, tipo='vacaciones'
+        )
+        if hay_solapamiento:
+            flash(f'Error: {mensaje_error}', 'danger')
+            return redirect(url_for('ausencias.solicitar_vacaciones'))
+
+        # 3. Cálculo de Días (Solo días Hábiles para vacaciones)
+        dias_calculados = calcular_dias_habiles(fecha_inicio, fecha_fin)
+        
+        if dias_calculados <= 0:
+            flash('El rango seleccionado no contiene días laborables (fines de semana o festivos).', 'warning')
+            return redirect(url_for('ausencias.solicitar_vacaciones'))
+
+        # 4. Validación de Saldo Disponible
+        saldo_actual = current_user.dias_vacaciones_disponibles()
+        if dias_calculados > saldo_actual:
+            flash(f'Saldo insuficiente. Solicitas {dias_calculados} días pero solo te quedan {saldo_actual}.', 'danger')
+            return redirect(url_for('ausencias.solicitar_vacaciones'))
+        
+        # 5. Creación de la Solicitud
         solicitud = SolicitudVacaciones(
             usuario_id=current_user.id,
-            grupo_id=str(uuid.uuid4()), # Nuevo UUID
+            grupo_id=str(uuid.uuid4()),
             version=1,
             es_actual=True,
             fecha_inicio=fecha_inicio,
             fecha_fin=fecha_fin,
-            dias_solicitados=dias_solicitados,
+            dias_solicitados=dias_calculados,
             motivo=motivo,
-            estado='pendiente'
+            estado='pendiente',
+            fecha_solicitud=datetime.utcnow()
         )
         
         db.session.add(solicitud)
         db.session.commit()
         
-        aprobadores = Aprobador.query.filter_by(usuario_id=current_user.id).all()
-        for rel in aprobadores:
-            enviar_email_solicitud(rel.aprobador, current_user, solicitud)
-        
-        flash('Solicitud de vacaciones enviada correctamente', 'success')
+        flash('Solicitud de vacaciones enviada correctamente.', 'success')
         return redirect(url_for('ausencias.listar_vacaciones'))
-    
+        
     return render_template('solicitar_vacaciones.html')
+
 
 @ausencias_bp.route('/vacaciones/cancelar/<int:id>', methods=['POST'])
 @login_required
 def cancelar_vacaciones(id):
-    """Permite al usuario cancelar su propia solicitud (crea versión cancelada)"""
+    """Permite al usuario cancelar su propia solicitud si aún está pendiente."""
     solicitud = SolicitudVacaciones.query.get_or_404(id)
     
+    # Seguridad: Verificar propiedad
     if solicitud.usuario_id != current_user.id:
-        flash('No tienes permiso.', 'danger')
+        flash('No tienes permiso para modificar esta solicitud.', 'danger')
         return redirect(url_for('ausencias.listar_vacaciones'))
-
-    if not solicitud.es_actual:
-        flash('Solo se puede cancelar la versión actual.', 'danger')
+        
+    # Lógica de Negocio: Solo pendientes
+    if solicitud.estado != 'pendiente':
+        flash('Solo se pueden cancelar solicitudes pendientes. Contacta con RRHH.', 'warning')
         return redirect(url_for('ausencias.listar_vacaciones'))
     
-    # Inmutabilidad: Marcamos anterior como no actual
-    solicitud.es_actual = False
+    # Acción: Marcar como rechazada/cancelada
+    solicitud.estado = 'rechazada'
+    solicitud.comentarios = 'Cancelada por el usuario'
+    solicitud.fecha_respuesta = datetime.utcnow()
     
-    # Nueva versión con estado 'cancelada'
-    cancelada = SolicitudVacaciones(
-        usuario_id=solicitud.usuario_id,
-        grupo_id=solicitud.grupo_id,
-        version=solicitud.version + 1,
-        es_actual=True,
-        fecha_inicio=solicitud.fecha_inicio,
-        fecha_fin=solicitud.fecha_fin,
-        dias_solicitados=solicitud.dias_solicitados,
-        motivo=solicitud.motivo,
-        estado='rechazada', # O 'cancelada' si añades ese estado al enum/modelo
-        motivo_rectificacion="Cancelada por el usuario",
-        fecha_solicitud=datetime.utcnow() # Fecha de cancelación
-    )
-    
-    db.session.add(cancelada)
     db.session.commit()
-    flash('Solicitud cancelada correctamente.', 'success')
+    flash('Solicitud cancelada correctamente.', 'info')
     return redirect(url_for('ausencias.listar_vacaciones'))
 
 
-# =======================
-# BAJAS (Con TipoAusencia)
-# =======================
+# -------------------------------------------------------------------------
+# GESTIÓN DE BAJAS Y OTRAS AUSENCIAS
+# -------------------------------------------------------------------------
+
 @ausencias_bp.route('/bajas')
 @login_required
 def listar_bajas():
-    solicitudes = SolicitudBaja.query.filter_by(usuario_id=current_user.id, es_actual=True).order_by(
-        SolicitudBaja.fecha_solicitud.desc()
-    ).all()
+    """Lista el historial de bajas médicas u otros permisos del usuario."""
+    solicitudes = SolicitudBaja.query.filter_by(usuario_id=current_user.id, es_actual=True)\
+        .order_by(SolicitudBaja.fecha_solicitud.desc()).all()
     return render_template('bajas.html', solicitudes=solicitudes)
+
 
 @ausencias_bp.route('/bajas/solicitar', methods=['GET', 'POST'])
 @login_required
 def solicitar_baja():
-    tipos_ausencia = TipoAusencia.query.all()
+    """Formulario y proceso de creación de nueva baja/permiso."""
+    tipos = TipoAusencia.query.all()
     
     if request.method == 'POST':
-        fecha_inicio = datetime.strptime(request.form.get('fecha_inicio'), '%Y-%m-%d').date()
-        fecha_fin = datetime.strptime(request.form.get('fecha_fin'), '%Y-%m-%d').date()
-        motivo = request.form.get('motivo', '')
-        tipo_id = request.form.get('tipo_ausencia_id') # ID del TipoAusencia
+        tipo_id = request.form.get('tipo_ausencia')
+        fecha_inicio_str = request.form.get('fecha_inicio')
+        fecha_fin_str = request.form.get('fecha_fin')
+        motivo = request.form.get('motivo')
         
-        # Validación básica de motivo
-        if not motivo:
-            flash('Debes especificar detalles del motivo.', 'danger')
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            flash('Formato de fechas inválido.', 'danger')
+            return redirect(url_for('ausencias.solicitar_baja'))
+        
+        if fecha_fin < fecha_inicio:
+            flash('La fecha de fin no puede ser anterior a la de inicio.', 'danger')
+            return redirect(url_for('ausencias.solicitar_baja'))
+
+        # 1. Validación de Solapamiento
+        hay_solapamiento, mensaje_error = verificar_solapamiento(
+            current_user.id, fecha_inicio, fecha_fin, tipo='baja'
+        )
+        if hay_solapamiento:
+            flash(f'Error: {mensaje_error}', 'danger')
             return redirect(url_for('ausencias.solicitar_baja'))
             
-        dias_solicitados = calcular_dias_laborables(fecha_inicio, fecha_fin)
-        
+        # 2. Cálculo de Días (Depende del Tipo de Ausencia)
+        tipo_obj = TipoAusencia.query.get(tipo_id)
+        if not tipo_obj:
+            flash('Tipo de ausencia no válido.', 'danger')
+            return redirect(url_for('ausencias.solicitar_baja'))
+
+        if tipo_obj.tipo_dias == 'naturales':
+            # Cuenta todos los días del calendario
+            dias = (fecha_fin - fecha_inicio).days + 1
+        else:
+            # Cuenta solo días hábiles (laborables)
+            dias = calcular_dias_habiles(fecha_inicio, fecha_fin)
+
+        # 3. Creación de la Solicitud
         solicitud = SolicitudBaja(
             usuario_id=current_user.id,
             grupo_id=str(uuid.uuid4()),
             version=1,
             es_actual=True,
-            tipo_ausencia_id=tipo_id, # Asignamos el tipo
+            tipo_ausencia_id=tipo_id,
             fecha_inicio=fecha_inicio,
             fecha_fin=fecha_fin,
-            dias_solicitados=dias_solicitados,
+            dias_solicitados=dias,
             motivo=motivo,
-            estado='pendiente'
+            estado='pendiente',
+            fecha_solicitud=datetime.utcnow()
         )
         
         db.session.add(solicitud)
         db.session.commit()
         
-        aprobadores = Aprobador.query.filter_by(usuario_id=current_user.id).all()
-        for rel in aprobadores:
-            enviar_email_solicitud(rel.aprobador, current_user, solicitud)
-        
-        flash('Solicitud de baja enviada correctamente', 'success')
+        flash('Baja/Permiso registrado correctamente.', 'success')
         return redirect(url_for('ausencias.listar_bajas'))
-    
-    return render_template('solicitar_baja.html', tipos_ausencia=tipos_ausencia)
+        
+    return render_template('solicitar_baja.html', tipos=tipos)
 
-@ausencias_bp.route('/bajas/cancelar/<int:id>', methods=['POST'])
+
+# -------------------------------------------------------------------------
+# ZONA DE APROBADORES (MANAGERS/ADMINS)
+# -------------------------------------------------------------------------
+
+@ausencias_bp.route('/aprobaciones')
 @login_required
-def cancelar_baja(id):
-    solicitud = SolicitudBaja.query.get_or_404(id)
-    
-    if solicitud.usuario_id != current_user.id:
-        flash('No tienes permiso.', 'danger')
-        return redirect(url_for('ausencias.listar_bajas'))
-        
-    if not solicitud.es_actual:
-        flash('Versión obsoleta.', 'danger')
-        return redirect(url_for('ausencias.listar_bajas'))
-
-    solicitud.es_actual = False
-    
-    cancelada = SolicitudBaja(
-        usuario_id=solicitud.usuario_id,
-        grupo_id=solicitud.grupo_id,
-        version=solicitud.version + 1,
-        es_actual=True,
-        tipo_ausencia_id=solicitud.tipo_ausencia_id,
-        fecha_inicio=solicitud.fecha_inicio,
-        fecha_fin=solicitud.fecha_fin,
-        dias_solicitados=solicitud.dias_solicitados,
-        motivo=solicitud.motivo,
-        estado='rechazada',
-        motivo_rectificacion="Cancelada por el usuario",
-        fecha_solicitud=datetime.utcnow()
-    )
-    db.session.add(cancelada)
-    db.session.commit()
-    flash('Baja cancelada.', 'success')
-    return redirect(url_for('ausencias.listar_bajas'))
-
-
-# =======================
-# APROBACIÓN
-# =======================
-@ausencias_bp.route('/aprobar-solicitudes')
-@aprobador_required
 def aprobar_solicitudes():
-    usuarios_ids = [r.usuario_id for r in Aprobador.query.filter_by(aprobador_id=current_user.id).all()]
+    """Panel para ver solicitudes pendientes de los empleados a cargo."""
+    if current_user.rol not in ['aprobador', 'admin']:
+        flash('Acceso denegado. No tienes rol de aprobador.', 'danger')
+        return redirect(url_for('main.index'))
     
-    # Filtrar pendientes Y es_actual=True
-    solicitudes_vac = SolicitudVacaciones.query.filter(
-        SolicitudVacaciones.usuario_id.in_(usuarios_ids),
+    # Obtener lista de IDs de usuarios asignados a este aprobador
+    ids_a_cargo = [r.usuario_id for r in current_user.usuarios_a_cargo]
+    
+    # 1. Buscar solicitudes de vacaciones pendientes
+    vacaciones = SolicitudVacaciones.query.filter(
+        SolicitudVacaciones.usuario_id.in_(ids_a_cargo),
         SolicitudVacaciones.estado == 'pendiente',
         SolicitudVacaciones.es_actual == True
-    ).order_by(SolicitudVacaciones.fecha_solicitud.desc()).all()
+    ).all()
     
-    solicitudes_bajas = SolicitudBaja.query.filter(
-        SolicitudBaja.usuario_id.in_(usuarios_ids),
+    # 2. Buscar bajas pendientes
+    bajas = SolicitudBaja.query.filter(
+        SolicitudBaja.usuario_id.in_(ids_a_cargo),
         SolicitudBaja.estado == 'pendiente',
         SolicitudBaja.es_actual == True
-    ).order_by(SolicitudBaja.fecha_solicitud.desc()).all()
+    ).all()
     
     return render_template('aprobar_solicitudes.html', 
-                           solicitudes_vac=solicitudes_vac, 
-                           solicitudes_bajas=solicitudes_bajas)
+                         solicitudes_vac=vacaciones, 
+                         solicitudes_bajas=bajas)
 
-@ausencias_bp.route('/vacaciones/responder/<int:id>/<accion>', methods=['POST'])
-@aprobador_required
+
+@ausencias_bp.route('/aprobaciones/vacaciones/<int:id>/<accion>', methods=['POST'])
+@login_required
 def responder_solicitud(id, accion):
-    # NOTA: En este caso, al aprobar/rechazar, NO creamos nueva versión, 
-    # sino que actualizamos el estado de la versión ACTUAL pendiente.
-    # El flujo de "versiones" es principalmente para cambios en los DATOS de la solicitud (fechas, etc).
+    """Acción de aprobar o rechazar vacaciones."""
+    if current_user.rol not in ['aprobador', 'admin']:
+        flash('No tienes permisos.', 'danger')
+        return redirect(url_for('main.index'))
+        
     solicitud = SolicitudVacaciones.query.get_or_404(id)
     
-    if solicitud.estado != 'pendiente' or not solicitud.es_actual:
-        flash('Esta solicitud ya ha sido procesada o modificada.', 'warning')
-        return redirect(url_for('ausencias.aprobar_solicitudes'))
-    
-    mensaje = ''
+    # Seguridad: Validar que el empleado realmente está a su cargo (o soy admin)
+    es_mi_empleado = any(r.usuario_id == solicitud.usuario_id for r in current_user.usuarios_a_cargo)
+    if not es_mi_empleado and current_user.rol != 'admin':
+         flash('No tienes permiso para gestionar solicitudes de este usuario.', 'danger')
+         return redirect(url_for('ausencias.aprobar_solicitudes'))
+
+    # Procesar Acción
     if accion == 'aprobar':
         solicitud.estado = 'aprobada'
-        solicitud.aprobador_id = current_user.id
-        solicitud.fecha_respuesta = datetime.now()
-        
-        event_id = sincronizar_vacaciones_a_google(solicitud)
-        if event_id:
-            solicitud.google_event_id = event_id
-            mensaje = 'Solicitud aprobada y sincronizada.'
-        else:
-            mensaje = 'Solicitud aprobada (⚠ Sincronización fallida).'
+        flash(f'Solicitud de vacaciones de {solicitud.usuario.nombre} aprobada.', 'success')
+        # TODO: Aquí se podría integrar el envío de email de confirmación
         
     elif accion == 'rechazar':
         solicitud.estado = 'rechazada'
-        solicitud.aprobador_id = current_user.id
-        solicitud.fecha_respuesta = datetime.now()
-        solicitud.comentarios = request.form.get('comentarios', '')
-        mensaje = 'Solicitud rechazada.'
+        flash(f'Solicitud de vacaciones de {solicitud.usuario.nombre} rechazada.', 'info')
     
-    try:
-        db.session.commit()
-        enviar_email_respuesta(solicitud.usuario, solicitud)
-        flash(mensaje, 'success' if '⚠' not in mensaje else 'warning')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error: {str(e)}', 'danger')
-
+    else:
+        flash('Acción no reconocida.', 'warning')
+        return redirect(url_for('ausencias.aprobar_solicitudes'))
+    
+    # Registrar auditoría de la respuesta
+    solicitud.aprobador_id = current_user.id
+    solicitud.fecha_respuesta = datetime.utcnow()
+    
+    db.session.commit()
     return redirect(url_for('ausencias.aprobar_solicitudes'))
 
-@ausencias_bp.route('/bajas/responder/<int:id>/<accion>', methods=['POST'])
-@aprobador_required
+
+@ausencias_bp.route('/aprobaciones/bajas/<int:id>/<accion>', methods=['POST'])
+@login_required
 def responder_baja(id, accion):
+    """Acción de aprobar o rechazar bajas/permisos."""
+    if current_user.rol not in ['aprobador', 'admin']:
+        flash('No tienes permisos.', 'danger')
+        return redirect(url_for('main.index'))
+        
     solicitud = SolicitudBaja.query.get_or_404(id)
     
-    if solicitud.estado != 'pendiente' or not solicitud.es_actual:
-        flash('Esta solicitud ya ha sido procesada o modificada.', 'warning')
-        return redirect(url_for('ausencias.aprobar_solicitudes'))
+    # Seguridad: Validar que el empleado está a su cargo
+    es_mi_empleado = any(r.usuario_id == solicitud.usuario_id for r in current_user.usuarios_a_cargo)
+    if not es_mi_empleado and current_user.rol != 'admin':
+         flash('No tienes permiso para gestionar solicitudes de este usuario.', 'danger')
+         return redirect(url_for('ausencias.aprobar_solicitudes'))
     
-    mensaje = ''
+    # Procesar Acción
     if accion == 'aprobar':
         solicitud.estado = 'aprobada'
-        solicitud.aprobador_id = current_user.id
-        solicitud.fecha_respuesta = datetime.now()
+        flash(f'Baja/Permiso de {solicitud.usuario.nombre} aprobada.', 'success')
         
-        event_id = sincronizar_baja_a_google(solicitud)
-        if event_id:
-            solicitud.google_event_id = event_id
-            mensaje = 'Baja aprobada y sincronizada.'
-        else:
-            mensaje = 'Baja aprobada (⚠ Sincronización fallida).'
-            
     elif accion == 'rechazar':
         solicitud.estado = 'rechazada'
-        solicitud.aprobador_id = current_user.id
-        solicitud.fecha_respuesta = datetime.now()
-        solicitud.comentarios = request.form.get('comentarios', '')
-        mensaje = 'Baja rechazada.'
+        flash(f'Baja/Permiso de {solicitud.usuario.nombre} rechazada.', 'info')
     
-    try:
-        db.session.commit()
-        enviar_email_respuesta(solicitud.usuario, solicitud)
-        flash(mensaje, 'success' if '⚠' not in mensaje else 'warning')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error: {str(e)}', 'danger')
-
+    else:
+        flash('Acción no reconocida.', 'warning')
+        return redirect(url_for('ausencias.aprobar_solicitudes'))
+    
+    # Registrar auditoría
+    solicitud.aprobador_id = current_user.id
+    solicitud.fecha_respuesta = datetime.utcnow()
+    
+    db.session.commit()
     return redirect(url_for('ausencias.aprobar_solicitudes'))

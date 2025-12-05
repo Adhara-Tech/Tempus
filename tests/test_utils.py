@@ -1,27 +1,60 @@
 from datetime import date
-from src.utils import calcular_dias_laborables
-from src.models import Festivo
+from src.utils import calcular_dias_habiles, verificar_solapamiento
+from src.models import Festivo, SolicitudVacaciones
 from src import db
 
-def test_calcular_dias_laborables_simple(test_app):
-    # Lunes a Viernes (5 días)
-    inicio = date(2023, 1, 2)
-    fin = date(2023, 1, 6)
-    assert calcular_dias_laborables(inicio, fin) == 5
+def test_calcular_dias_habiles_simple(test_app):
+    """Semana normal lunes-viernes."""
+    inicio = date(2023, 1, 2) # Lunes
+    fin = date(2023, 1, 6)    # Viernes
+    assert calcular_dias_habiles(inicio, fin) == 5
 
 def test_calcular_dias_con_finde(test_app):
-    # Lunes a Domingo (5 días laborables)
-    inicio = date(2023, 1, 2)
-    fin = date(2023, 1, 8)
-    assert calcular_dias_laborables(inicio, fin) == 5
+    """Semana completa (7 días naturales -> 5 hábiles)."""
+    inicio = date(2023, 1, 2) # Lunes
+    fin = date(2023, 1, 8)    # Domingo
+    assert calcular_dias_habiles(inicio, fin) == 5
 
 def test_calcular_dias_con_festivo(test_app):
+    """Semana con un festivo entre medias."""
     # Crear festivo el Miércoles
     festivo = Festivo(fecha=date(2023, 1, 4), descripcion="Festivo Test")
     db.session.add(festivo)
     db.session.commit()
     
-    # Lunes a Viernes con 1 festivo (4 días)
-    inicio = date(2023, 1, 2)
-    fin = date(2023, 1, 6)
-    assert calcular_dias_laborables(inicio, fin) == 4
+    inicio = date(2023, 1, 2) # Lunes
+    fin = date(2023, 1, 6)    # Viernes
+    # L(1) M(1) X(0) J(1) V(1) = 4 días
+    assert calcular_dias_habiles(inicio, fin) == 4
+
+def test_verificar_solapamiento_limpio(test_app, employee_user):
+    """No hay solapamiento si no hay solicitudes."""
+    hay_solape, msg = verificar_solapamiento(employee_user.id, date(2023, 1, 1), date(2023, 1, 5))
+    assert hay_solape is False
+    assert msg is None
+
+def test_verificar_solapamiento_detectado(test_app, employee_user):
+    """Detectar choque con solicitud existente."""
+    # 1. Crear solicitud base (1-5 Enero)
+    sol = SolicitudVacaciones(
+        usuario_id=employee_user.id,
+        fecha_inicio=date(2023, 1, 1),
+        fecha_fin=date(2023, 1, 5),
+        dias_solicitados=5,
+        motivo="Test",
+        estado="pendiente"
+    )
+    db.session.add(sol)
+    db.session.commit()
+    
+    # 2. Probar Overlap Total (mismas fechas)
+    hay_solape, _ = verificar_solapamiento(employee_user.id, date(2023, 1, 1), date(2023, 1, 5))
+    assert hay_solape is True
+    
+    # 3. Probar Overlap Parcial (3-7 Enero)
+    hay_solape, _ = verificar_solapamiento(employee_user.id, date(2023, 1, 3), date(2023, 1, 7))
+    assert hay_solape is True
+    
+    # 4. Probar Sin Overlap (6-10 Enero)
+    hay_solape, _ = verificar_solapamiento(employee_user.id, date(2023, 1, 6), date(2023, 1, 10))
+    assert hay_solape is False
