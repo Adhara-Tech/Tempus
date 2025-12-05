@@ -1,16 +1,27 @@
 version: '3.8'
 
 services:
+  # -------------------------------
+  # APLICACIÓN WEB (FLASK)
+  # -------------------------------
   web:
     build: .
     ports:
       - "5000:5000"
+    
+    depends_on:
+      - db
       
     environment:
-      # Seguridad
-      - SECRET_KEY=${SECRET_KEY:-tu-clave-secreta-de-produccion}
+      # --- SELECCIÓN DE BASE DE DATOS ---
+      # Si esta variable no existe, la app usará SQLite por defecto (src/__init__.py)
+      # Formato: postgresql://usuario:password@host:puerto/nombre_bbdd
+      - SQLALCHEMY_DATABASE_URI=postgresql://fichador_user:fichador_pass@db:5432/fichador_db
       
-      # Configuración de Email (Gmail)
+      # --- SEGURIDAD ---
+      - SECRET_KEY=${SECRET_KEY:-clave-secreta-para-produccion-cambiala}
+      
+      # --- CONFIGURACIÓN EMAIL ---
       - MAIL_SERVER=${MAIL_SERVER:-smtp.gmail.com}
       - MAIL_PORT=${MAIL_PORT:-587}
       - MAIL_USE_TLS=${MAIL_USE_TLS:-True}
@@ -18,13 +29,41 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
       
-      # Google Calendar (opcional)
+      # --- GOOGLE CALENDAR & OAUTH ---
       - GOOGLE_CALENDAR_ID=${GOOGLE_CALENDAR_ID:-primary}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET}
+      
+      # En producción con HTTPS, cambiar a '0' o eliminar
+      - OAUTHLIB_INSECURE_TRANSPORT=1 
       
     volumes:
-      - db_data:/app
+      # Persistencia de logs o uploads si los hubiera (opcional)
+      - ./instance:/app/instance
       
     container_name: fichador_web
+    restart: always
+
+  # -------------------------------
+  # BASE DE DATOS (POSTGRESQL)
+  # -------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: fichador_db
+    restart: always
+    
+    environment:
+      - POSTGRES_USER=fichador_user
+      - POSTGRES_PASSWORD=fichador_pass
+      - POSTGRES_DB=fichador_db
+      
+    volumes:
+      # Persistencia REAL de los datos de la BBDD
+      - postgres_data:/var/lib/postgresql/data
+      
+    ports:
+      # Opcional: Solo si quieres conectarte desde fuera (ej: DBeaver)
+      - "5432:5432"
 
 volumes:
-  db_data:
+  postgres_data:

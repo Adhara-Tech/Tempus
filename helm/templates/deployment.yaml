@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fichador.fullname" . }}
+  labels:
+    {{- include "fichador.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "fichador.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fichador.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          
+          env:
+            # --- 1. Lógica de Selección de Base de Datos ---
+            
+            # OPCIÓN A: Postgres Interno (Kubernetes Service)
+            {{- if eq .Values.database.type "internal" }}
+            - name: SQLALCHEMY_DATABASE_URI
+              value: postgresql://{{ .Values.database.internal.user }}:{{ .Values.database.internal.password }}@{{ include "fichador.fullname" . }}-db:5432/{{ .Values.database.internal.dbName }}
+            
+            # OPCIÓN B: Postgres Externo (Aurora, RDS, etc)
+            {{- else if eq .Values.database.type "external" }}
+            - name: SQLALCHEMY_DATABASE_URI
+              value: postgresql://{{ .Values.database.external.username }}:{{ .Values.database.external.password }}@{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
+            
+            # OPCIÓN C: SQLite (Local)
+            # Forzamos la ruta a /data/fichaje.db para usar el volumen persistente
+            {{- else if eq .Values.database.type "sqlite" }}
+            - name: SQLALCHEMY_DATABASE_URI
+              value: sqlite:////data/fichaje.db
+            {{- end }}
+
+            # --- 2. Variables de Entorno Extra (values.yaml) ---
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+
+          # --- 3. Secretos Externos ---
+          {{- if .Values.existingSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          {{- end }}
+
+          # --- 4. Health Checks ---
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+
+          # --- 5. Montaje de Volumen SQLite (Condicional) ---
+          volumeMounts:
+            {{- if and (eq .Values.database.type "sqlite") .Values.database.sqlite.persistence.enabled }}
+            - name: sqlite-data
+              mountPath: /data
+            {{- end }}
+
+      # --- 6. Definición del Volumen (Condicional) ---
+      volumes:
+        {{- if and (eq .Values.database.type "sqlite") .Values.database.sqlite.persistence.enabled }}
+        - name: sqlite-data
+          persistentVolumeClaim:
+            claimName: {{ include "fichador.fullname" . }}-sqlite-pvc
+        {{- end }}

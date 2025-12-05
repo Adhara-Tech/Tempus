@@ -1,0 +1,68 @@
+# --- Configuración de la App ---
+image:
+  repository: tu-usuario/fichador  # Cambia esto por tu imagen real
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 5000
+
+# --- Base de Datos ---
+database:
+  # Opciones: "sqlite" (no recomendado para producción), "internal" (despliega pod postgres) o "external" (usa RDS/Aurora/Etc)
+  type: internal
+  
+  # Solo se usa si type: external
+  external:
+    host: "mi-aurora-db.aws.com"
+    port: 5432
+    username: "admin"
+    password: "password_seguro"
+    database: "fichador_prod"
+
+  sqlite:
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClass: "" # Dejar vacío para usar la default
+
+# --- Configuración PostgreSQL Interna (Bitnami Subchart) ---
+# Se activa automáticamente si database.type es "internal" (ver lógica abajo no, se controla manual)
+# Para usar externa, pon enabled: false
+postgresql:
+  enabled: true
+  auth:
+    username: fichador
+    password: fichador_password
+    database: fichador_db
+  # Persistencia de la BBDD interna (puedes desactivarla si quieres que sea efímera)
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+# --- Exposición (Ingress vs Gateway API) ---
+ingress:
+  enabled: false
+  className: "nginx"
+  host: "fichador.local"
+  tls: []
+  #  - secretName: fichador-tls
+  #    hosts:
+  #      - fichador.local
+
+gatewayApi:
+  enabled: false
+  gatewayName: "my-gateway"  # El nombre del Gateway existente en tu cluster
+  namespace: "default"       # Namespace del Gateway
+  hostname: "fichador.example.com"
+
+# --- Configuración y Secretos ---
+# Variables de entorno extra
+env: 
+  FLASK_ENV: "production"
+
+# Si tienes un secreto creado manualmente (ej: sealed-secrets o external-secrets)
+# pon el nombre aquí. La chart cargará todo el contenido como variables de entorno.
+existingSecret: ""
