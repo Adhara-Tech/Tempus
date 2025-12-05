@@ -45,13 +45,14 @@
     <div class="card-body">
         {% if fichajes %}
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover align-middle">
                 <thead>
                     <tr>
                         <th>Fecha</th>
                         <th>Entrada</th>
                         <th>Salida</th>
-                        <th>Horas</th>
+                        <th>Pausa</th>
+                        <th>Horas Efectivas</th>
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
@@ -63,16 +64,21 @@
                         <td>{{ fichaje.hora_entrada.strftime('%H:%M') }}</td>
                         <td>{{ fichaje.hora_salida.strftime('%H:%M') }}</td>
                         <td>
-                            {{ "%.2f"|format(fichaje.horas_trabajadas()) }}h
+                            {% if fichaje.pausa > 0 %}
+                                <span class="text-muted">{{ fichaje.pausa }} min</span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ "%.2f"|format(fichaje.horas_trabajadas()) }}h</strong>
                         </td>
                         <td>
                             {% if fichaje.version > 1 %}
                                 {% set editor_nombre = fichaje.editor.nombre if fichaje.editor else 'Desconocido' %}
-                                {% set texto_rectificado = 'Rectificado por ' ~ editor_nombre %}
-                                
                                 <span class="badge bg-warning text-dark" 
-                                      title="Versión {{ fichaje.version }} - {{ fichaje.motivo_rectificacion }}">
-                                    <i class="bi bi-pencil-square"></i> {{ texto_rectificado }}
+                                      title="Rectificado por {{ editor_nombre }}">
+                                    <i class="bi bi-pencil-square"></i> Rectificado
                                 </span>
                             {% else %}
                                 <span class="badge bg-success">Original</span>

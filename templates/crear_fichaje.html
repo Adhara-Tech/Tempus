@@ -14,16 +14,23 @@
             </div>
             
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Hora de Entrada</label>
                         <input type="time" class="form-control" name="hora_entrada" required>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Hora de Salida</label>
                         <input type="time" class="form-control" name="hora_salida" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Pausa (minutos)</label>
+                        <input type="number" class="form-control" name="pausa" value="0" min="0" placeholder="Ej: 60">
+                        <div class="form-text small">Tiempo de comida/descanso.</div>
                     </div>
                 </div>
             </div>

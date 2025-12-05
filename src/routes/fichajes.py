@@ -42,6 +42,7 @@ def crear():
         hora_entrada = datetime.strptime(request.form.get('hora_entrada'), '%H:%M').time()
         hora_salida = datetime.strptime(request.form.get('hora_salida'), '%H:%M').time()
         
+        # CAPTURAR PAUSA
         try:
             pausa = int(request.form.get('pausa') or 0)
         except ValueError:
@@ -86,16 +87,18 @@ def editar(id):
             flash('El motivo es obligatorio para rectificar un fichaje.', 'danger')
             return redirect(url_for('fichajes.editar', id=id))
 
+        # CAPTURAR PAUSA
         try:
             pausa = int(request.form.get('pausa') or 0)
         except ValueError:
             pausa = 0
 
+        # VERSIONADO
         fichaje_actual.es_actual = False
         
         nuevo_fichaje = Fichaje(
             usuario_id=fichaje_actual.usuario_id,
-            editor_id=current_user.id,
+            editor_id=current_user.id, # Quién modifica
             grupo_id=fichaje_actual.grupo_id,
             version=fichaje_actual.version + 1,
             es_actual=True,
@@ -131,7 +134,7 @@ def eliminar(id):
     
     fichaje_borrado = Fichaje(
         usuario_id=fichaje_actual.usuario_id,
-        editor_id=current_user.id,
+        editor_id=current_user.id, # Quién elimina
         grupo_id=fichaje_actual.grupo_id,
         version=fichaje_actual.version + 1,
         es_actual=True,

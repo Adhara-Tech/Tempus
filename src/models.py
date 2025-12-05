@@ -35,11 +35,10 @@ class Usuario(UserMixin, db.Model):
     dias_vacaciones = db.Column(db.Integer, default=25)
     fecha_alta = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # --- CORRECCIÓN AQUÍ ---
-    # Especificamos explícitamente qué Foreign Key usar para evitar la ambigüedad con editor_id
+    # Relación con fichajes
     fichajes = db.relationship(
         'Fichaje', 
-        foreign_keys='Fichaje.usuario_id', # <--- ESTO ARREGLA EL ERROR
+        foreign_keys='Fichaje.usuario_id', 
         backref='usuario', 
         lazy=True, 
         cascade='all, delete-orphan'
@@ -89,21 +88,19 @@ class Fichaje(db.Model):
     tipo_accion = db.Column(db.String(20), default='creacion')
     motivo_rectificacion = db.Column(db.Text)
     
-    # Datos
+    # Datos Principales
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
-    
-    # Editor (Quién hizo el cambio)
-    editor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id')) 
+    editor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id')) # Quién hizo el cambio
     
     fecha = db.Column(db.Date, nullable=False)
     hora_entrada = db.Column(db.Time, nullable=False)
     hora_salida = db.Column(db.Time, nullable=False)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Pausa (Ya incluido para que te funcione la siguiente feature)
-    pausa = db.Column(db.Integer, default=0)
+    # Campo pausa
+    pausa = db.Column(db.Integer, default=0) # En minutos
     
-    # Relación con el Editor
+    # Relación para saber quién editó
     editor = db.relationship('Usuario', foreign_keys=[editor_id])
     
     def __repr__(self):
@@ -113,11 +110,16 @@ class Fichaje(db.Model):
     def horas_trabajadas(self):
         entrada = datetime.combine(self.fecha, self.hora_entrada)
         salida = datetime.combine(self.fecha, self.hora_salida)
+        
         if salida < entrada:
             salida += timedelta(days=1)
+            
         diferencia = salida - entrada
         horas_totales = diferencia.total_seconds() / 3600
-        horas_pausa = (self.pausa or 0) / 60 # Convertir minutos a horas
+        
+        # Restar la pausa (convertida de minutos a horas)
+        horas_pausa = (self.pausa or 0) / 60
+        
         return max(0, horas_totales - horas_pausa)
 
 

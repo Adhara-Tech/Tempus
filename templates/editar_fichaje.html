@@ -15,18 +15,26 @@
             </div>
 
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Hora de Entrada</label>
                         <input type="time" class="form-control" name="hora_entrada" required
                             value="{{ request.form.get('hora_entrada', fichaje.hora_entrada.strftime('%H:%M')) }}">
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Hora de Salida</label>
                         <input type="time" class="form-control" name="hora_salida" required
                             value="{{ request.form.get('hora_salida', fichaje.hora_salida.strftime('%H:%M')) }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Pausa (minutos)</label>
+                        <input type="number" class="form-control" name="pausa" min="0" required
+                            value="{{ request.form.get('pausa', fichaje.pausa) }}">
+                        <div class="form-text small">Tiempo de comida/descanso.</div>
                     </div>
                 </div>
             </div>
