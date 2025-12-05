@@ -3,12 +3,30 @@
 {% block title %}Solicitar Ausencia{% endblock %}
 
 {% block content %}
-<h1 class="mb-4"><i class="bi bi-bandaid"></i> Solicitar Baja</h1>
+<h1 class="mb-4"><i class="bi bi-bandaid"></i> Solicitar Baja o Ausencia</h1>
 
 <div class="row">
-    <div class="col-md-12"> <div class="card">
+    <div class="col-md-12"> 
+        <div class="card">
             <div class="card-body">
                 <form method="POST" id="formBaja">
+                    
+                    {% if current_user.rol == 'admin' %}
+                    <div class="mb-4 p-3 bg-light border rounded">
+                        <label class="form-label fw-bold"><i class="bi bi-person-badge"></i> Empleado (Modo Admin)</label>
+                        <select class="form-select" name="usuario_id">
+                            <option value="{{ current_user.id }}">Para mí mismo ({{ current_user.nombre }})</option>
+                            {% for u in usuarios %}
+                                {% if u.id != current_user.id %}
+                                <option value="{{ u.id }}">{{ u.nombre }} ({{ u.email }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-primary">
+                            <i class="bi bi-info-circle"></i> Al registrar una baja para otro empleado, esta se aprueba automáticamente.
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Fecha de Inicio</label>
@@ -23,9 +41,8 @@
                     
                     <div class="mb-3">
                         <label class="form-label">Tipo de Baja/Ausencia</label>
-                        <select class="form-select" name="tipo_ausencia_id" required>
-                            <option value="">Seleccione el tipo...</option>
-                            {% for tipo in tipos_ausencia %}
+                        <select class="form-select" name="tipo_ausencia" required> <option value="">Seleccione el tipo...</option>
+                            {% for tipo in tipos %}
                                 <option value="{{ tipo.id }}">
                                     {{ tipo.nombre }} (Máx. {{ tipo.max_dias }} días)
                                 </option>
@@ -53,6 +70,7 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -98,5 +116,4 @@ async function calcularDias() {
     }
 }
 </script>
-{% endblock %}
 {% endblock %}

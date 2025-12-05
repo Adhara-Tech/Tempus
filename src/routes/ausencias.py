@@ -25,10 +25,25 @@ def listar_vacaciones():
 @login_required
 def solicitar_vacaciones():
     """Formulario y proceso de creación de nueva solicitud de vacaciones."""
+    
+    # Si es admin, cargar usuarios para el selector
+    usuarios = []
+    if current_user.rol == 'admin':
+        usuarios = Usuario.query.order_by(Usuario.nombre).all()
+
     if request.method == 'POST':
         fecha_inicio_str = request.form.get('fecha_inicio')
         fecha_fin_str = request.form.get('fecha_fin')
         motivo = request.form.get('motivo')
+        usuario_id_seleccionado = request.form.get('usuario_id')
+
+        # DETERMINAR EL USUARIO OBJETIVO (Impersonation)
+        target_user = current_user
+        if current_user.rol == 'admin' and usuario_id_seleccionado:
+            target_user = Usuario.query.get(int(usuario_id_seleccionado))
+            if not target_user:
+                flash('Usuario seleccionado no válido.', 'danger')
+                return redirect(url_for('ausencias.solicitar_vacaciones'))
 
         # Conversión de fechas
         try:
@@ -44,12 +59,12 @@ def solicitar_vacaciones():
             return redirect(url_for('ausencias.solicitar_vacaciones'))
         
         # 2. Validación de Solapamiento (Overlap)
-        # Comprueba si ya existe otra solicitud (pendiente/aprobada) en ese rango
+        # Comprueba si TARGET_USER ya tiene otra solicitud
         hay_solapamiento, mensaje_error = verificar_solapamiento(
-            current_user.id, fecha_inicio, fecha_fin, tipo='vacaciones'
+            target_user.id, fecha_inicio, fecha_fin, tipo='vacaciones'
         )
         if hay_solapamiento:
-            flash(f'Error: {mensaje_error}', 'danger')
+            flash(f'Error ({target_user.nombre}): {mensaje_error}', 'danger')
             return redirect(url_for('ausencias.solicitar_vacaciones'))
 
         # 3. Cálculo de Días (Solo días Hábiles para vacaciones)
@@ -59,15 +74,21 @@ def solicitar_vacaciones():
             flash('El rango seleccionado no contiene días laborables (fines de semana o festivos).', 'warning')
             return redirect(url_for('ausencias.solicitar_vacaciones'))
 
-        # 4. Validación de Saldo Disponible
-        saldo_actual = current_user.dias_vacaciones_disponibles()
+        # 4. Validación de Saldo Disponible (De TARGET_USER)
+        saldo_actual = target_user.dias_vacaciones_disponibles()
         if dias_calculados > saldo_actual:
-            flash(f'Saldo insuficiente. Solicitas {dias_calculados} días pero solo te quedan {saldo_actual}.', 'danger')
+            flash(f'Saldo insuficiente para {target_user.nombre}. Solicitas {dias_calculados} días pero solo tiene {saldo_actual}.', 'danger')
             return redirect(url_for('ausencias.solicitar_vacaciones'))
         
-        # 5. Creación de la Solicitud
+        # 5. Configurar Estado (Si lo crea Admin para otro -> APROBADA)
+        es_admin_gestion = (current_user.rol == 'admin' and target_user.id != current_user.id)
+        estado_inicial = 'aprobada' if es_admin_gestion else 'pendiente'
+        aprobador_inicial = current_user.id if es_admin_gestion else None
+        fecha_respuesta = datetime.utcnow() if es_admin_gestion else None
+
+        # 6. Creación de la Solicitud
         solicitud = SolicitudVacaciones(
-            usuario_id=current_user.id,
+            usuario_id=target_user.id,
             grupo_id=str(uuid.uuid4()),
             version=1,
             es_actual=True,
@@ -75,17 +96,23 @@ def solicitar_vacaciones():
             fecha_fin=fecha_fin,
             dias_solicitados=dias_calculados,
             motivo=motivo,
-            estado='pendiente',
+            estado=estado_inicial,
+            aprobador_id=aprobador_inicial,
+            fecha_respuesta=fecha_respuesta,
             fecha_solicitud=datetime.utcnow()
         )
         
         db.session.add(solicitud)
         db.session.commit()
         
-        flash('Solicitud de vacaciones enviada correctamente.', 'success')
+        msg_exito = f'Vacaciones registradas y aprobadas para {target_user.nombre}.' if es_admin_gestion else 'Solicitud de vacaciones enviada correctamente.'
+        flash(msg_exito, 'success')
+        
+        # Si es admin gestionando a otro, quizás redirigir a la lista general o panel admin
+        # Por ahora lo mandamos a su lista personal o dashboard
         return redirect(url_for('ausencias.listar_vacaciones'))
         
-    return render_template('solicitar_vacaciones.html')
+    return render_template('solicitar_vacaciones.html', usuarios=usuarios)
 
 
 @ausencias_bp.route('/vacaciones/cancelar/<int:id>', methods=['POST'])
@@ -94,19 +121,20 @@ def cancelar_vacaciones(id):
     """Permite al usuario cancelar su propia solicitud si aún está pendiente."""
     solicitud = SolicitudVacaciones.query.get_or_404(id)
     
-    # Seguridad: Verificar propiedad
-    if solicitud.usuario_id != current_user.id:
+    # Seguridad: Verificar propiedad O Admin
+    es_admin = current_user.rol == 'admin'
+    if solicitud.usuario_id != current_user.id and not es_admin:
         flash('No tienes permiso para modificar esta solicitud.', 'danger')
         return redirect(url_for('ausencias.listar_vacaciones'))
         
-    # Lógica de Negocio: Solo pendientes
-    if solicitud.estado != 'pendiente':
+    # Lógica de Negocio: Solo pendientes (Salvo Admin que puede revocar)
+    if solicitud.estado != 'pendiente' and not es_admin:
         flash('Solo se pueden cancelar solicitudes pendientes. Contacta con RRHH.', 'warning')
         return redirect(url_for('ausencias.listar_vacaciones'))
     
     # Acción: Marcar como rechazada/cancelada
     solicitud.estado = 'rechazada'
-    solicitud.comentarios = 'Cancelada por el usuario'
+    solicitud.comentarios = f'Cancelada por {current_user.nombre}'
     solicitud.fecha_respuesta = datetime.utcnow()
     
     db.session.commit()
@@ -133,11 +161,25 @@ def solicitar_baja():
     """Formulario y proceso de creación de nueva baja/permiso."""
     tipos = TipoAusencia.query.all()
     
+    # Si es admin, cargar usuarios
+    usuarios = []
+    if current_user.rol == 'admin':
+        usuarios = Usuario.query.order_by(Usuario.nombre).all()
+    
     if request.method == 'POST':
         tipo_id = request.form.get('tipo_ausencia')
         fecha_inicio_str = request.form.get('fecha_inicio')
         fecha_fin_str = request.form.get('fecha_fin')
         motivo = request.form.get('motivo')
+        usuario_id_seleccionado = request.form.get('usuario_id')
+
+        # DETERMINAR EL USUARIO OBJETIVO
+        target_user = current_user
+        if current_user.rol == 'admin' and usuario_id_seleccionado:
+            target_user = Usuario.query.get(int(usuario_id_seleccionado))
+            if not target_user:
+                flash('Usuario no válido.', 'danger')
+                return redirect(url_for('ausencias.solicitar_baja'))
         
         try:
             fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
@@ -152,10 +194,10 @@ def solicitar_baja():
 
         # 1. Validación de Solapamiento
         hay_solapamiento, mensaje_error = verificar_solapamiento(
-            current_user.id, fecha_inicio, fecha_fin, tipo='baja'
+            target_user.id, fecha_inicio, fecha_fin, tipo='baja'
         )
         if hay_solapamiento:
-            flash(f'Error: {mensaje_error}', 'danger')
+            flash(f'Error ({target_user.nombre}): {mensaje_error}', 'danger')
             return redirect(url_for('ausencias.solicitar_baja'))
             
         # 2. Cálculo de Días (Depende del Tipo de Ausencia)
@@ -171,9 +213,15 @@ def solicitar_baja():
             # Cuenta solo días hábiles (laborables)
             dias = calcular_dias_habiles(fecha_inicio, fecha_fin)
 
-        # 3. Creación de la Solicitud
+        # 3. Configurar Estado (Admin -> Aprobada)
+        es_admin_gestion = (current_user.rol == 'admin' and target_user.id != current_user.id)
+        estado_inicial = 'aprobada' if es_admin_gestion else 'pendiente'
+        aprobador_inicial = current_user.id if es_admin_gestion else None
+        fecha_respuesta = datetime.utcnow() if es_admin_gestion else None
+
+        # 4. Creación de la Solicitud
         solicitud = SolicitudBaja(
-            usuario_id=current_user.id,
+            usuario_id=target_user.id,
             grupo_id=str(uuid.uuid4()),
             version=1,
             es_actual=True,
@@ -182,17 +230,20 @@ def solicitar_baja():
             fecha_fin=fecha_fin,
             dias_solicitados=dias,
             motivo=motivo,
-            estado='pendiente',
+            estado=estado_inicial,
+            aprobador_id=aprobador_inicial,
+            fecha_respuesta=fecha_respuesta,
             fecha_solicitud=datetime.utcnow()
         )
         
         db.session.add(solicitud)
         db.session.commit()
         
-        flash('Baja/Permiso registrado correctamente.', 'success')
+        msg_exito = f'Baja registrada y aprobada para {target_user.nombre}.' if es_admin_gestion else 'Baja/Permiso registrado correctamente.'
+        flash(msg_exito, 'success')
         return redirect(url_for('ausencias.listar_bajas'))
         
-    return render_template('solicitar_baja.html', tipos=tipos)
+    return render_template('solicitar_baja.html', tipos=tipos, usuarios=usuarios)
 
 
 # -------------------------------------------------------------------------
