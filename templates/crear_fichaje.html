@@ -10,26 +10,30 @@
         <form method="POST">
             <div class="mb-3">
                 <label class="form-label">Fecha</label>
-                <input type="date" class="form-control" name="fecha" required value="{{ request.form.get('fecha', '') or now().strftime('%Y-%m-%d') }}">
+                <input type="date" class="form-control" name="fecha" required 
+                       value="{{ request.form.get('fecha', '') or now().strftime('%Y-%m-%d') }}">
             </div>
             
             <div class="row">
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Hora de Entrada</label>
-                        <input type="time" class="form-control" name="hora_entrada" required>
+                        <input type="time" class="form-control" name="hora_entrada" required
+                               value="{{ request.form.get('hora_entrada') or request.args.get('hora_entrada') or '' }}">
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Hora de Salida</label>
-                        <input type="time" class="form-control" name="hora_salida" required>
+                        <input type="time" class="form-control" name="hora_salida" required
+                               value="{{ request.form.get('hora_salida') or request.args.get('hora_salida') or '' }}">
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Pausa (minutos)</label>
-                        <input type="number" class="form-control" name="pausa" value="0" min="0" placeholder="Ej: 60">
+                        <input type="number" class="form-control" name="pausa" min="0" placeholder="Ej: 60"
+                               value="{{ request.form.get('pausa') or request.args.get('pausa') or '0' }}">
                         <div class="form-text small">Tiempo de comida/descanso.</div>
                     </div>
                 </div>
