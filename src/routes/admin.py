@@ -365,3 +365,68 @@ def admin_fichajes():
                            mes_actual=mes,
                            anio_actual=anio,
                            total_horas=total_horas)
+
+# En src/routes/admin.py
+
+@admin_bp.route('/admin/gestion-ausencias')
+@admin_required
+def admin_gestion_ausencias():
+    # 1. Obtener filtros
+    usuario_id = request.args.get('usuario_id', type=int)
+    tipo_filtro = request.args.get('tipo', 'todos') # 'todos', 'vacaciones', 'bajas'
+    fecha_inicio_str = request.args.get('fecha_inicio')
+    fecha_fin_str = request.args.get('fecha_fin')
+    
+    # 2. Consultas Base (Solo versiones actuales)
+    query_vac = SolicitudVacaciones.query.filter_by(es_actual=True)
+    query_bajas = SolicitudBaja.query.filter_by(es_actual=True)
+    
+    # 3. Aplicar filtro de Usuario
+    if usuario_id:
+        query_vac = query_vac.filter_by(usuario_id=usuario_id)
+        query_bajas = query_bajas.filter_by(usuario_id=usuario_id)
+        
+    # 4. Aplicar filtro de Fechas (Solapamiento)
+    if fecha_inicio_str:
+        f_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        query_vac = query_vac.filter(SolicitudVacaciones.fecha_fin >= f_inicio)
+        query_bajas = query_bajas.filter(SolicitudBaja.fecha_fin >= f_inicio)
+        
+    if fecha_fin_str:
+        f_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        query_vac = query_vac.filter(SolicitudVacaciones.fecha_inicio <= f_fin)
+        query_bajas = query_bajas.filter(SolicitudBaja.fecha_inicio <= f_fin)
+
+    # 5. Obtener resultados según el tipo solicitado
+    resultados = []
+    
+    if tipo_filtro in ['todos', 'vacaciones']:
+        vacaciones = query_vac.all()
+        # Añadimos un atributo extra para identificar en el template
+        for v in vacaciones:
+            v.tipo_etiqueta = 'Vacaciones'
+            v.clase_css = 'success'
+            resultados.append(v)
+            
+    if tipo_filtro in ['todos', 'bajas']:
+        bajas = query_bajas.all()
+        for b in bajas:
+            # Intentamos obtener el nombre del tipo, si no, genérico
+            nombre_tipo = b.tipo_ausencia.nombre if b.tipo_ausencia else 'Baja/Ausencia'
+            b.tipo_etiqueta = nombre_tipo
+            b.clase_css = 'danger' # O info, warning, etc.
+            resultados.append(b)
+            
+    # 6. Ordenar resultados combinados por fecha de inicio (más reciente primero)
+    resultados.sort(key=lambda x: x.fecha_inicio, reverse=True)
+    
+    # 7. Datos para los selectores
+    usuarios = Usuario.query.order_by(Usuario.nombre).all()
+    
+    return render_template('admin/gestion_ausencias.html', 
+                           ausencias=resultados,
+                           usuarios=usuarios,
+                           usuario_seleccionado=usuario_id,
+                           tipo_seleccionado=tipo_filtro,
+                           fecha_inicio=fecha_inicio_str,
+                           fecha_fin=fecha_fin_str)

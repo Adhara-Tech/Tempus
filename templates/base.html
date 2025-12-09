@@ -146,6 +146,9 @@
         <a href="{{ url_for('admin.admin_fichajes') }}" {% if 'admin_fichajes' in request.endpoint %}class="active" {% endif %}>
             <i class="bi bi-clock-history"></i> Gestión Fichajes
         </a>
+        <a href="{{ url_for('admin.admin_gestion_ausencias') }}" {% if 'gestion_ausencias' in request.endpoint %}class="active" {% endif %}>
+            <i class="bi bi-calendar-range"></i> Gestión Ausencias
+        </a>
         <a href="{{ url_for('admin.admin_resumen') }}" {% if request.endpoint=='admin.admin_resumen' %}class="active" {% endif %}>
             <i class="bi bi-file-earmark-bar-graph"></i> Resumen Global
         </a>
