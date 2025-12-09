@@ -176,47 +176,69 @@ def admin_tipos_ausencia():
 @admin_bp.route('/admin/resumen')
 @admin_required
 def admin_resumen():
-    usuarios = Usuario.query.filter(Usuario.rol != 'admin').all()
+    # 1. Obtener filtros
+    usuario_id = request.args.get('usuario_id', type=int)
+    # Por defecto usamos el año actual si no se especifica
+    anio = request.args.get('anio', type=int, default=datetime.now().year)
     
-    hoy = datetime.now()
-    mes = request.args.get('mes', type=int, default=hoy.month)
-    anio = request.args.get('anio', type=int, default=hoy.year)
+    # 2. Definir rango de fechas del año seleccionado (para vacaciones y estadísticas anuales)
+    fecha_inicio_anio = date(anio, 1, 1)
+    fecha_fin_anio = date(anio, 12, 31)
 
-    try:
-        _, ultimo_dia = monthrange(anio, mes)
-        fecha_inicio = date(anio, mes, 1)
-        fecha_fin = date(anio, mes, ultimo_dia)
-    except ValueError:
-        mes = hoy.month
-        anio = hoy.year
-        _, ultimo_dia = monthrange(anio, mes)
-        fecha_inicio = date(anio, mes, 1)
-        fecha_fin = date(anio, mes, ultimo_dia)
+    # 3. Obtener usuarios (para el selector y para el bucle)
+    all_usuarios = Usuario.query.order_by(Usuario.nombre).all()
+    
+    # Filtramos la lista principal si se seleccionó un usuario
+    query_users = Usuario.query.filter(Usuario.rol != 'admin')
+    if usuario_id:
+        query_users = query_users.filter(Usuario.id == usuario_id)
+    usuarios_a_mostrar = query_users.all()
     
     resumen_usuarios = []
-    for usuario in usuarios:
-        # Solo fichajes ACTUALES
-        fichajes = Fichaje.query.filter_by(usuario_id=usuario.id, es_actual=True)\
-            .filter(Fichaje.tipo_accion != 'eliminacion')\
-            .filter(Fichaje.fecha >= fecha_inicio)\
-            .filter(Fichaje.fecha <= fecha_fin)\
-            .all()
+    
+    for usuario in usuarios_a_mostrar:
+        # A. Fichajes del AÑO completo (Conteo y Horas)
+        fichajes_anio = Fichaje.query.filter(
+            Fichaje.usuario_id == usuario.id,
+            Fichaje.es_actual == True,
+            Fichaje.tipo_accion != 'eliminacion',
+            Fichaje.fecha >= fecha_inicio_anio,
+            Fichaje.fecha <= fecha_fin_anio
+        ).all()
         
+        # B. Vacaciones disfrutadas EN ESE AÑO
+        # (Importante: filtramos por fecha para que el saldo sea correcto por año)
         dias_aprobados = db.session.query(func.sum(SolicitudVacaciones.dias_solicitados)).filter(
             SolicitudVacaciones.usuario_id == usuario.id,
             SolicitudVacaciones.estado == 'aprobada',
-            SolicitudVacaciones.es_actual == True
+            SolicitudVacaciones.es_actual == True,
+            SolicitudVacaciones.fecha_inicio >= fecha_inicio_anio,
+            SolicitudVacaciones.fecha_inicio <= fecha_fin_anio
         ).scalar() or 0
         
+        # Calculamos horas totales del año (puede ser costoso si hay muchos, pero útil)
+        total_horas_anio = sum(f.horas_trabajadas() for f in fichajes_anio)
+
         resumen_usuarios.append({
             'usuario': usuario,
-            'fichajes': fichajes,
+            'fichajes_count': len(fichajes_anio),
+            'horas_totales': total_horas_anio,
             'dias_vacaciones_totales': usuario.dias_vacaciones,
             'dias_disfrutados': dias_aprobados,
             'dias_restantes': usuario.dias_vacaciones - dias_aprobados
         })
     
-    return render_template('admin/resumen.html', resumen_usuarios=resumen_usuarios, now=datetime.now, mes_actual=mes, anio_actual=anio)
+    # Totales globales para el pie de página
+    total_dias_disfrutados = sum(r['dias_disfrutados'] for r in resumen_usuarios)
+    total_dias_restantes = sum(r['dias_restantes'] for r in resumen_usuarios)
+    
+    return render_template('admin/resumen.html', 
+                           resumen_usuarios=resumen_usuarios, 
+                           usuarios=all_usuarios, # Para el selector
+                           usuario_seleccionado=usuario_id,
+                           anio_actual=anio,
+                           total_dias_disfrutados=total_dias_disfrutados,
+                           total_dias_restantes=total_dias_restantes)
 
 # --- AUDITORÍA UNIFICADA (Fichajes + Ausencias + Impersonation) ---
 @admin_bp.route('/admin/auditoria')

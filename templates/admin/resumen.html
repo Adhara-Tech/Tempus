@@ -3,119 +3,102 @@
 {% block title %}Resumen Global{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-file-earmark-bar-graph"></i> Resumen Global</h1>
-    <div class="text-muted">
-        <i class="bi bi-calendar"></i> {{ mes_actual }}/{{ anio_actual }}
+<h1 class="mb-4"><i class="bi bi-file-earmark-bar-graph"></i> Resumen Global Anual</h1>
+
+<div class="card mb-4 bg-light">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Empleado</label>
+                <select name="usuario_id" class="form-select" onchange="this.form.submit()">
+                    <option value="">-- Todos los empleados --</option>
+                    {% for u in usuarios %}
+                        {% if u.rol != 'admin' %}
+                        <option value="{{ u.id }}" {% if u.id == usuario_seleccionado %}selected{% endif %}>
+                            {{ u.nombre }}
+                        </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Año</label>
+                <select name="anio" class="form-select" onchange="this.form.submit()">
+                    {% for a in range(2023, 2026) %}
+                    <option value="{{ a }}" {% if a == anio_actual %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <a href="{{ url_for('admin.admin_resumen') }}" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-arrow-counterclockwise"></i> Resetear
+                </a>
+            </div>
+        </form>
     </div>
+</div>
+
+<div class="alert alert-info d-flex justify-content-between align-items-center">
+    <span>
+        <i class="bi bi-info-circle"></i> Datos del año <strong>{{ anio_actual }}</strong>
+    </span>
+    <span class="fs-5">
+        Pendientes de disfrutar global: <strong>{{ total_dias_restantes }} días</strong>
+    </span>
 </div>
 
 {% if resumen_usuarios %}
-<div class="row">
-    {% for item in resumen_usuarios %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-person-circle"></i> {{ item.usuario.nombre }}
-                </h5>
-                <small>{{ item.usuario.email }}</small>
-            </div>
-            <div class="card-body">
-                <h6 class="text-muted mb-3">Información de Vacaciones</h6>
-
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Días totales:</span>
-                    <strong class="text-primary">{{ item.dias_vacaciones_totales }}</strong>
-                </div>
-
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Días disfrutados:</span>
-                    <strong class="text-warning">{{ item.dias_disfrutados }}</strong>
-                </div>
-
-                <div class="d-flex justify-content-between mb-3">
-                    <span>Días restantes:</span>
-                    <strong class="text-success">{{ item.dias_restantes }}</strong>
-                </div>
-
-                <div class="progress mb-3" style="height: 25px;">
-                    {% set porcentaje = (item.dias_disfrutados / item.dias_vacaciones_totales * 100) if
-                    item.dias_vacaciones_totales > 0 else 0 %}
-                    <div class="progress-bar {% if porcentaje > 80 %}bg-danger{% elif porcentaje > 50 %}bg-warning{% else %}bg-success{% endif %}"
-                        role="progressbar" style="width: {{ porcentaje }}%" aria-valuenow="{{ porcentaje }}"
-                        aria-valuemin="0" aria-valuemax="100">
-                        {{ "%.0f"|format(porcentaje) }}%
-                    </div>
-                </div>
-
-                <hr>
-
-                <h6 class="text-muted mb-2">Fichajes</h6>
-                <div class="d-flex justify-content-between">
-                    <span>Total registrados:</span>
-                    <strong>{{ item.fichajes|length }}</strong>
-                </div>
-
-                {% if item.fichajes %}
-                {% set total_horas = item.fichajes|map(attribute='horas_trabajadas')|map('float')|sum %}
-                <div class="d-flex justify-content-between">
-                    <span>Horas totales:</span>
-                    <strong class="text-info">{{ "%.2f"|format(total_horas) }}h</strong>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-<!-- Tabla resumen general -->
-<div class="card mt-4">
+<div class="card">
     <div class="card-header">
-        <h5><i class="bi bi-table"></i> Tabla Resumen</h5>
+        <h5 class="mb-0"><i class="bi bi-table"></i> Tabla Detallada</h5>
     </div>
-    <div class="card-body">
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover table-striped">
-                <thead>
+            <table class="table table-striped table-hover mb-0 align-middle">
+                <thead class="table-dark">
                     <tr>
                         <th>Usuario</th>
-                        <th>Email</th>
-                        <th>Días Totales</th>
-                        <th>Disfrutados</th>
-                        <th>Restantes</th>
-                        <th>% Usado</th>
-                        <th>Fichajes</th>
+                        <th class="text-center">Días Totales</th>
+                        <th class="text-center">Disfrutados</th>
+                        <th class="text-center">Restantes</th>
+                        <th style="width: 20%;">Estado Vacaciones</th>
+                        <th class="text-end">Horas (Año {{ anio_actual }})</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in resumen_usuarios %}
                     <tr>
-                        <td><strong>{{ item.usuario.nombre }}</strong></td>
-                        <td><small>{{ item.usuario.email }}</small></td>
-                        <td>{{ item.dias_vacaciones_totales }}</td>
-                        <td><span class="badge bg-warning">{{ item.dias_disfrutados }}</span></td>
-                        <td><span class="badge bg-success">{{ item.dias_restantes }}</span></td>
                         <td>
-                            {% set porcentaje = (item.dias_disfrutados / item.dias_vacaciones_totales * 100) if
-                            item.dias_vacaciones_totales > 0 else 0 %}
-                            <span
-                                class="badge {% if porcentaje > 80 %}bg-danger{% elif porcentaje > 50 %}bg-warning{% else %}bg-success{% endif %}">
-                                {{ "%.0f"|format(porcentaje) }}%
-                            </span>
+                            <div class="fw-bold">{{ item.usuario.nombre }}</div>
+                            <small class="text-muted">{{ item.usuario.email }}</small>
                         </td>
-                        <td>{{ item.fichajes|length }}</td>
+                        <td class="text-center">{{ item.dias_vacaciones_totales }}</td>
+                        <td class="text-center"><span class="badge bg-warning text-dark">{{ item.dias_disfrutados }}</span></td>
+                        <td class="text-center"><span class="badge bg-success">{{ item.dias_restantes }}</span></td>
+                        <td>
+                            {% set porcentaje = (item.dias_disfrutados / item.dias_vacaciones_totales * 100) if item.dias_vacaciones_totales > 0 else 0 %}
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                    <div class="progress-bar {% if porcentaje > 80 %}bg-danger{% elif porcentaje > 50 %}bg-warning{% else %}bg-success{% endif %}" 
+                                         style="width: {{ porcentaje }}%"></div>
+                                </div>
+                                <small class="text-muted">{{ "%.0f"|format(porcentaje) }}%</small>
+                            </div>
+                        </td>
+                        <td class="text-end fw-bold">{{ "%.2f"|format(item.horas_totales) }}h</td>
                     </tr>
                     {% endfor %}
                 </tbody>
-                <tfoot>
-                    <tr class="table-active">
-                        <td colspan="2"><strong>TOTALES</strong></td>
-                        <td><strong>{{ resumen_usuarios|sum(attribute='dias_vacaciones_totales') }}</strong></td>
-                        <td><strong>{{ resumen_usuarios|sum(attribute='dias_disfrutados') }}</strong></td>
-                        <td><strong>{{ resumen_usuarios|sum(attribute='dias_restantes') }}</strong></td>
-                        <td colspan="2"></td>
+                <tfoot class="table-light">
+                    <tr>
+                        <td class="fw-bold">TOTALES</td>
+                        <td class="text-center fw-bold">{{ resumen_usuarios|sum(attribute='dias_vacaciones_totales') }}</td>
+                        <td class="text-center fw-bold">{{ total_dias_disfrutados }}</td>
+                        <td class="text-center fw-bold text-success">{{ total_dias_restantes }}</td>
+                        <td></td>
+                        <td class="text-end fw-bold">{{ "%.2f"|format(resumen_usuarios|sum(attribute='horas_totales')) }}h</td>
                     </tr>
                 </tfoot>
             </table>
@@ -124,8 +107,8 @@
 </div>
 
 {% else %}
-<div class="alert alert-info">
-    <i class="bi bi-info-circle"></i> No hay usuarios registrados (excluyendo administradores).
+<div class="alert alert-warning text-center mt-4">
+    <i class="bi bi-search"></i> No se encontraron usuarios con los filtros seleccionados.
 </div>
 {% endif %}
 {% endblock %}
