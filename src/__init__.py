@@ -167,5 +167,6 @@ def init_db():
         
         app.db_initialized = True
 
-from src.cli import cerrar_anio_command
+from src.cli import cerrar_anio_command, import_users_command
 app.cli.add_command(cerrar_anio_command)
+app.cli.add_command(import_users_command)

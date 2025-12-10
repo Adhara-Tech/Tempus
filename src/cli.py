@@ -61,3 +61,65 @@ def cerrar_anio_command(anio_origen):
 
     db.session.commit()
     print(f"✅ Proceso finalizado. Se generaron {count} nuevos saldos.")
+
+
+@click.command('import-users')
+@click.argument('csv_file', type=click.Path(exists=True))
+@with_appcontext
+def import_users_command(csv_file):
+    """
+    Importa usuarios desde un fichero CSV.
+    Formato esperado: nombre,email
+    Columna vacía o resto de columnas se ignoran.
+    """
+    import csv
+    import secrets
+    from werkzeug.security import generate_password_hash
+
+    print(f"--- Importando usuarios desde {csv_file} ---")
+    
+    count_new = 0
+    count_skip = 0
+
+    with open(csv_file, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        # Normalizar headers por si acaso tienen espacios
+        reader.fieldnames = [name.strip().lower() for name in reader.fieldnames]
+
+        if 'email' not in reader.fieldnames or 'nombre' not in reader.fieldnames:
+            print("❌ Error: El CSV debe tener columnas 'nombre' y 'email'.")
+            return
+
+        for row in reader:
+            nombre = row.get('nombre', '').strip()
+            email = row.get('email', '').strip()
+
+            if not email:
+                continue
+
+            # Check existencia
+            existing = Usuario.query.filter_by(email=email).first()
+            if existing:
+                print(f"Assignado {email}: Ya existe. SALTADO.")
+                count_skip += 1
+                continue
+
+            # Crear usuario
+            # Password aleatorio
+            raw_pass = secrets.token_urlsafe(8)
+            password_hash = generate_password_hash(raw_pass)
+
+            new_user = Usuario(
+                nombre=nombre,
+                email=email,
+                password=password_hash,
+                rol='usuario', # Default role
+                dias_vacaciones=25 # Default
+            )
+            
+            db.session.add(new_user)
+            count_new += 1
+            print(f"✅ Creado: {nombre} ({email}) - Pass: {raw_pass}")
+
+    db.session.commit()
+    print(f"\nResumen: {count_new} creados, {count_skip} saltados.")
