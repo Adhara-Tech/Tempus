@@ -22,7 +22,7 @@ jobs:
       - name: 4. Ejecutar la app en segundo plano
         run: |
           flask run &
-          sleep 5 # Dar tiempo a que la app inicie
+          sleep 30 # Dar tiempo a que la app inicie
 
       - name: 5. Comprobar si la app responde
         # Usamos -L para seguir la redirección a /login

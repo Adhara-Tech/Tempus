@@ -19,7 +19,8 @@
                         <th>Desde</th>
                         <th>Hasta</th>
                         <th>Días</th>
-                        <th>Motivo</th> <th>Acciones</th>
+                        <th>Motivo</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -28,7 +29,19 @@
                         <td>
                             <div class="fw-bold">{{ sol.usuario.nombre }}</div>
                             {% if sol.version > 1 %}
-                                <span class="badge bg-warning text-dark" style="font-size: 0.75em;">v{{sol.version}}</span>
+                            <span class="badge bg-warning text-dark" style="font-size: 0.75em;">v{{sol.version}}</span>
+                            {% endif %}
+                            
+                            {% if sol.dias_adelanto and sol.dias_adelanto > 0 %}
+                            <span class="badge bg-info text-dark mt-1" title="Esta solicitud consume días del año siguiente">
+                                <i class="bi bi-info-circle"></i> Adelanto: {{ sol.dias_adelanto }} días
+                            </span>
+                            {% endif %}
+                            {% if sol.tipo_accion == 'modificacion' %}
+                            <span class="badge bg-warning text-dark mt-1">Modificación</span>
+                            <div class="small text-muted">Versión v{{ sol.version }}</div>
+                            {% elif sol.tipo_accion == 'cancelacion' %}
+                            <span class="badge bg-danger mt-1">Petición de Cancelación</span>
                             {% endif %}
                         </td>
                         <td>{{ sol.fecha_inicio.strftime('%d/%m/%Y') }}</td>
@@ -36,13 +49,18 @@
                         <td>
                             <span class="badge bg-secondary">{{ sol.dias_solicitados }}</span>
                         </td>
-                        <td><small>{{ sol.motivo }}</small></td> <td>
+                        <td><small>{{ sol.motivo }}</small></td>
+                        <td>
                             <div class="btn-group">
-                                <form method="POST" action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='aprobar') }}">
-                                    <button class="btn btn-sm btn-success me-1" title="Aprobar"><i class="bi bi-check-lg"></i></button>
+                                <form method="POST"
+                                    action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='aprobar') }}">
+                                    <button class="btn btn-sm btn-success me-1" title="Aprobar"><i
+                                            class="bi bi-check-lg"></i></button>
                                 </form>
-                                <form method="POST" action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='rechazar') }}">
-                                    <button class="btn btn-sm btn-danger" title="Rechazar"><i class="bi bi-x-lg"></i></button>
+                                <form method="POST"
+                                    action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='rechazar') }}">
+                                    <button class="btn btn-sm btn-danger" title="Rechazar"><i
+                                            class="bi bi-x-lg"></i></button>
                                 </form>
                             </div>
                         </td>
@@ -81,14 +99,14 @@
                         <td>
                             <div class="fw-bold">{{ sol.usuario.nombre }}</div>
                             {% if sol.version > 1 %}
-                                <span class="badge bg-warning text-dark" style="font-size: 0.75em;">v{{sol.version}}</span>
+                            <span class="badge bg-warning text-dark" style="font-size: 0.75em;">v{{sol.version}}</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if sol.tipo_ausencia %}
-                                <span class="badge bg-info text-dark">{{ sol.tipo_ausencia.nombre }}</span>
+                            <span class="badge bg-info text-dark">{{ sol.tipo_ausencia.nombre }}</span>
                             {% else %}
-                                <span class="badge bg-light text-dark border">Genérica</span>
+                            <span class="badge bg-light text-dark border">Genérica</span>
                             {% endif %}
                         </td>
                         <td>{{ sol.fecha_inicio.strftime('%d/%m/%Y') }}</td>
@@ -96,11 +114,15 @@
                         <td><small>{{ sol.motivo }}</small></td>
                         <td>
                             <div class="btn-group">
-                                <form method="POST" action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='aprobar') }}">
-                                    <button class="btn btn-sm btn-success me-1" title="Aprobar"><i class="bi bi-check-lg"></i></button>
+                                <form method="POST"
+                                    action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='aprobar') }}">
+                                    <button class="btn btn-sm btn-success me-1" title="Aprobar"><i
+                                            class="bi bi-check-lg"></i></button>
                                 </form>
-                                <form method="POST" action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='rechazar') }}">
-                                    <button class="btn btn-sm btn-danger" title="Rechazar"><i class="bi bi-x-lg"></i></button>
+                                <form method="POST"
+                                    action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='rechazar') }}">
+                                    <button class="btn btn-sm btn-danger" title="Rechazar"><i
+                                            class="bi bi-x-lg"></i></button>
                                 </form>
                             </div>
                         </td>

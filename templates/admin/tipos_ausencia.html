@@ -53,6 +53,8 @@
                         <th>Máximo Días</th>
                         <th>Tipo Cómputo</th>
                         <th>Descripción</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -68,6 +70,27 @@
                             {% endif %}
                         </td>
                         <td>{{ tipo.descripcion or '-' }}</td>
+                        <td>
+                            {% if tipo.activo %}
+                            <span class="badge bg-success">Activo</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form method="POST" action="{{ url_for('admin.admin_toggle_tipo_ausencia', id=tipo.id) }}"
+                                class="d-inline">
+                                {% if tipo.activo %}
+                                <button class="btn btn-sm btn-outline-danger" title="Desactivar">
+                                    <i class="bi bi-toggle-on"></i> Desactivar
+                                </button>
+                                {% else %}
+                                <button class="btn btn-sm btn-outline-success" title="Activar">
+                                    <i class="bi bi-toggle-off"></i> Activar
+                                </button>
+                                {% endif %}
+                            </form>
+                        </td>
                     </tr>
                     {% else %}
                     <tr>

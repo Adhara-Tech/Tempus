@@ -13,3 +13,4 @@ Flask-Dance
 blinker
 pytest
 psycopg2-binary
+gevent

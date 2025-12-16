@@ -1,5 +1,5 @@
 # 1. Usar una imagen base ligera de Python
-FROM python:3.11-slim
+FROM python:3.11.14-slim
 
 # 2. Establecer el directorio de trabajo dentro del contenedor
 WORKDIR /app
@@ -16,4 +16,4 @@ EXPOSE 5000
 
 # 6. Comando para ejecutar la aplicación
 #    Inicia 4 "workers" para la app, apuntando al objeto 'app' dentro del archivo 'app.py'
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["gunicorn", "-k", "gevent", "-w", "4", "--bind", "0.0.0.0:5000", "app:app"]

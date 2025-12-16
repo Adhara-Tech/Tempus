@@ -1,6 +1,6 @@
 # --- Configuración de la App ---
 image:
-  repository: tu-usuario/fichador  # Cambia esto por tu imagen real
+  repository: pixelotes/fichador  # Cambia esto por tu imagen real
   pullPolicy: IfNotPresent
   tag: "latest"
 
@@ -11,7 +11,9 @@ service:
 # --- Base de Datos ---
 database:
   # Opciones: "sqlite" (no recomendado para producción), "internal" (despliega pod postgres) o "external" (usa RDS/Aurora/Etc)
-  type: internal
+  type: sqlite
+
+  # Internal se configura desde la ruta .Values.postgresql      
   
   # Solo se usa si type: external
   external:
@@ -21,6 +23,7 @@ database:
     password: "password_seguro"
     database: "fichador_prod"
 
+  # Solo se usa si type: sqlite
   sqlite:
     persistence:
       enabled: true
@@ -31,7 +34,7 @@ database:
 # Se activa automáticamente si database.type es "internal" (ver lógica abajo no, se controla manual)
 # Para usar externa, pon enabled: false
 postgresql:
-  enabled: true
+  enabled: false
   auth:
     username: fichador
     password: fichador_password

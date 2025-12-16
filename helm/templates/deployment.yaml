@@ -29,7 +29,7 @@ spec:
             # OPCIÓN A: Postgres Interno (Kubernetes Service)
             {{- if eq .Values.database.type "internal" }}
             - name: SQLALCHEMY_DATABASE_URI
-              value: postgresql://{{ .Values.database.internal.user }}:{{ .Values.database.internal.password }}@{{ include "fichador.fullname" . }}-db:5432/{{ .Values.database.internal.dbName }}
+              value: postgresql://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "fichador.fullname" . }}-db:5432/{{ .Values.postgresql.auth.database }}
             
             # OPCIÓN B: Postgres Externo (Aurora, RDS, etc)
             {{- else if eq .Values.database.type "external" }}

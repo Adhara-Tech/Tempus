@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime, timedelta
+from sqlalchemy.schema import UniqueConstraint
 import uuid
 
 db = SQLAlchemy()
@@ -19,6 +20,7 @@ class TipoAusencia(db.Model):
     tipo_dias = db.Column(db.String(20), default='naturales')
     requiere_justificante = db.Column(db.Boolean, default=False)
     descuenta_vacaciones = db.Column(db.Boolean, default=False)
+    activo = db.Column(db.Boolean, default=True) # Soft delete
     
     def __repr__(self):
         return f'<TipoAusencia {self.nombre}>'
@@ -68,16 +70,53 @@ class Usuario(UserMixin, db.Model):
     def __repr__(self):
         return f'<Usuario {self.nombre}>'
     
-    def dias_vacaciones_disponibles(self):
-        dias_usados = sum([
-            s.dias_solicitados for s in self.solicitudes_vacaciones 
-            if s.estado == 'aprobada' and s.es_actual
-        ])
-        return self.dias_vacaciones - dias_usados
+    def dias_vacaciones_disponibles(self, anio=None):
+        if anio is None:
+            anio = datetime.now().year
+            
+        saldo = SaldoVacaciones.query.filter_by(usuario_id=self.id, anio=anio).first()
+        
+        if saldo:
+            return saldo.dias_totales - saldo.dias_disfrutados
+        return 0
+
+    # Relación con saldos de vacaciones
+    saldos_vacaciones = db.relationship('SaldoVacaciones', backref='usuario', lazy=True)
+
+
+class SaldoVacaciones(db.Model):
+    __tablename__ = 'saldos_vacaciones'
+
+    __table_args__ = (
+        UniqueConstraint('usuario_id', 'anio', name='unique_usuario_anio'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    anio = db.Column(db.Integer, nullable=False)
+    dias_totales = db.Column(db.Integer, default=25)
+    dias_disfrutados = db.Column(db.Integer, default=0)
+    dias_carryover = db.Column(db.Integer, default=0)
+
+    __table_args__ = (
+        UniqueConstraint('usuario_id', 'anio', name='unique_usuario_anio'),
+    )
+
+    def __repr__(self):
+        return f'<SaldoVacaciones {self.usuario.nombre} - {self.anio}>'
 
 
 class Fichaje(db.Model):
     __tablename__ = 'fichajes'
+
+    __table_args__ = (
+        # 1. Índice principal: Acelera "Mis Fichajes" y los informes mensuales
+        # Orden: Filtramos por usuario -> solo actuales -> rango de fechas
+        db.Index('idx_fichaje_usuario_fecha', 'usuario_id', 'es_actual', 'fecha'),
+        
+        # 2. Índice secundario: Para agrupaciones por UUID (historial de versiones)
+        db.Index('idx_fichaje_grupo', 'grupo_id'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     
@@ -125,6 +164,15 @@ class Fichaje(db.Model):
 
 class SolicitudVacaciones(db.Model):
     __tablename__ = 'solicitudes_vacaciones'
+
+    __table_args__ = (
+        # 1. Índice para detección de solapamientos (Overlap Check) y listados
+        # Incluimos 'estado' porque siempre filtras 'pendiente' o 'aprobada'
+        db.Index('idx_vacaciones_solape', 'usuario_id', 'es_actual', 'estado', 'fecha_inicio', 'fecha_fin'),
+        
+        # 2. Índice para historial de versiones
+        db.Index('idx_vacaciones_grupo', 'grupo_id'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     grupo_id = db.Column(db.String(36), default=generate_uuid, nullable=False)
@@ -144,7 +192,32 @@ class SolicitudVacaciones(db.Model):
     comentarios = db.Column(db.Text)
     google_event_id = db.Column(db.String(255))
     
+    # Nuevos campos para versionado y auditoría
+    tipo_accion = db.Column(db.String(20), default='creacion')
+    editor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+
     aprobador = db.relationship('Usuario', foreign_keys=[aprobador_id])
+    editor = db.relationship('Usuario', foreign_keys=[editor_id])
+
+    @property
+    def dias_adelanto(self):
+        """
+        Calcula dinámicamente cuántos días de adelanto supone esta solicitud
+        basándose en el saldo actual del usuario para el año de la solicitud.
+        """
+        if not self.usuario:
+            return 0
+            
+        # Obtenemos el saldo disponible del usuario para el año de estas vacaciones
+        # Nota: Usamos self.fecha_inicio.year para ser precisos con el año fiscal
+        anio = self.fecha_inicio.year
+        disponible = self.usuario.dias_vacaciones_disponibles(anio)
+        
+        # Si pide más de lo que tiene, la diferencia es el adelanto
+        if self.dias_solicitados > disponible:
+            return self.dias_solicitados - disponible
+            
+        return 0
     
     def __repr__(self):
         return f'<SolicitudVacaciones {self.usuario.nombre} - {self.fecha_inicio}>'
@@ -152,6 +225,12 @@ class SolicitudVacaciones(db.Model):
 
 class SolicitudBaja(db.Model):
     __tablename__ = 'solicitudes_bajas'
+
+    __table_args__ = (
+        # Mismo razonamiento que en vacaciones
+        db.Index('idx_bajas_solape', 'usuario_id', 'es_actual', 'estado', 'fecha_inicio', 'fecha_fin'),
+        db.Index('idx_bajas_grupo', 'grupo_id'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     grupo_id = db.Column(db.String(36), default=generate_uuid, nullable=False)

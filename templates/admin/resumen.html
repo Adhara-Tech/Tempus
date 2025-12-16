@@ -95,7 +95,7 @@
                                 <small class="text-muted">{{ "%.0f"|format(porcentaje) }}%</small>
                             </div>
                         </td>
-                        <td class="text-end fw-bold">{{ "%.2f"|format(item.horas_totales) }}h</td>
+                        <td class="text-end fw-bold">{{ item.horas_totales | formato_hora }}h</td>
                     </tr>
                     {% endfor %}
                 </tbody>

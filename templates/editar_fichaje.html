@@ -2,40 +2,60 @@
 
 {% block title %}Editar Fichaje{% endblock %}
 
+{% block extra_css %}
+{% endblock %}
+
 {% block content %}
 <h1 class="mb-4"><i class="bi bi-pencil"></i> Editar Fichaje</h1>
 
 <div class="card">
     <div class="card-body">
+        
+        <div id="alertaFecha" class="alert alert-warning" style="display: none;">
+            <i class="bi bi-exclamation-triangle-fill"></i> <span id="textoAlerta"></span>
+        </div>
+
         <form method="POST">
             <input type="hidden" name="next" value="{{ next_url or '' }}">
+            
             <div class="mb-3">
                 <label class="form-label">Fecha</label>
-                <input type="date" class="form-control" name="fecha" required
-                    value="{{ request.form.get('fecha', fichaje.fecha.strftime('%Y-%m-%d')) }}">
+                <input type="date" class="form-control" name="fecha" id="inputFecha" required
+                    value="{{ request.form.get('fecha', fichaje.fecha.strftime('%Y-%m-%d')) }}"
+                    placeholder="Selecciona una fecha">
             </div>
 
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Hora de Entrada</label>
-                        <input type="time" class="form-control" name="hora_entrada" required
+                        <input type="time" class="form-control" name="hora_entrada" id="inputEntrada" required
                             value="{{ request.form.get('hora_entrada', fichaje.hora_entrada.strftime('%H:%M')) }}">
                     </div>
                 </div>
-                <div class="col-md-4">
+                
+                <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Hora de Salida</label>
-                        <input type="time" class="form-control" name="hora_salida" required
+                        <input type="time" class="form-control" name="hora_salida" id="inputSalida" required
                             value="{{ request.form.get('hora_salida', fichaje.hora_salida.strftime('%H:%M')) }}">
                     </div>
                 </div>
-                <div class="col-md-4">
+                
+                <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Pausa (minutos)</label>
-                        <input type="number" class="form-control" name="pausa" min="0" required
+                        <input type="number" class="form-control" name="pausa" id="inputPausa" min="0" required
                             value="{{ request.form.get('pausa', fichaje.pausa) }}">
                         <div class="form-text small">Tiempo de comida/descanso.</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-primary">Total Estimado</label>
+                        <input type="text" class="form-control fw-bold bg-light" id="inputTotal" readonly 
+                               value="0.00 h" style="border-color: #cfe2ff;">
                     </div>
                 </div>
             </div>
@@ -56,4 +76,121 @@
         </form>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+
+<script>
+    // --- 0. INICIALIZACIÓN DE FLATPICKR ---
+    flatpickr("#inputFecha", {
+        locale: "es",
+        altInput: true,
+        altFormat: "d/m/Y",
+        dateFormat: "Y-m-d",
+        allowInput: true,
+        monthSelectorType: "static"
+    });
+
+    // --- 1. CÁLCULO DE HORAS ---
+    const entradaInput = document.getElementById('inputEntrada');
+    const salidaInput = document.getElementById('inputSalida');
+    const pausaInput = document.getElementById('inputPausa');
+    const totalInput = document.getElementById('inputTotal');
+
+    function calcularTotal() {
+        const entrada = entradaInput.value;
+        const salida = salidaInput.value;
+        const pausa = parseInt(pausaInput.value) || 0;
+
+        if (entrada && salida) {
+            const [hEntrada, mEntrada] = entrada.split(':').map(Number);
+            const [hSalida, mSalida] = salida.split(':').map(Number);
+
+            const minutosEntrada = hEntrada * 60 + mEntrada;
+            let minutosSalida = hSalida * 60 + mSalida;
+
+            if (minutosSalida < minutosEntrada) {
+                minutosSalida += 24 * 60;
+            }
+
+            const diffMinutos = (minutosSalida - minutosEntrada) - pausa;
+            const totalMinutos = Math.max(0, diffMinutos);
+
+            const horasFinales = Math.floor(totalMinutos / 60);
+            const minutosFinales = totalMinutos % 60;
+
+            const hStr = horasFinales.toString().padStart(2, '0');
+            const mStr = minutosFinales.toString().padStart(2, '0');
+
+            totalInput.value = `${hStr}:${mStr} h`;
+        } else {
+            totalInput.value = "00:00 h";
+        }
+    }
+
+    // --- 2. VERIFICACIÓN AJAX (Opcional en edición hasta actualizar backend) ---
+    async function verificarDatos() {
+        const fecha = document.getElementById('inputFecha').value;
+        const horaEntrada = entradaInput.value;
+        const horaSalida = salidaInput.value;
+        
+        const alertaBox = document.getElementById('alertaFecha');
+        const alertaTexto = document.getElementById('textoAlerta');
+        const btnGuardar = document.querySelector('button[type="submit"]');
+        
+        if (!fecha) {
+            alertaBox.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch("{{ url_for('fichajes.verificar_fecha_ajax') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    fecha: fecha,
+                    hora_entrada: horaEntrada,
+                    hora_salida: horaSalida,
+                    // Enviamos el ID para futuras mejoras del backend (exclusión)
+                    excluir_id: {{ fichaje.id }} 
+                })
+            });
+
+            const data = await response.json();
+
+            alertaBox.classList.remove('alert-warning', 'alert-danger');
+            btnGuardar.disabled = false;
+
+            if (data.status === 'error') {
+                alertaBox.classList.add('alert-danger');
+                alertaTexto.innerHTML = `<i class="bi bi-x-octagon-fill"></i> ${data.message}`;
+                alertaBox.style.display = 'block';
+                btnGuardar.disabled = true;
+            } else if (data.status === 'warning') {
+                alertaBox.classList.add('alert-warning');
+                alertaTexto.innerHTML = data.messages.join('<br>');
+                alertaBox.style.display = 'block';
+            } else {
+                alertaBox.style.display = 'none';
+                alertaTexto.textContent = '';
+            }
+
+        } catch (error) {
+            console.error('Error verificando:', error);
+        }
+    }
+
+    // Listeners
+    [entradaInput, salidaInput, pausaInput].forEach(el => {
+        el.addEventListener('input', calcularTotal);
+        el.addEventListener('change', calcularTotal);
+        el.addEventListener('blur', verificarDatos);
+    });
+    
+    document.getElementById('inputFecha').addEventListener('change', verificarDatos);
+
+    // Inicialización al cargar la página
+    calcularTotal();
+    verificarDatos();
+</script>
 {% endblock %}

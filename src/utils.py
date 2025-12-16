@@ -1,5 +1,5 @@
 from datetime import timedelta, date
-from src.models import Festivo, SolicitudVacaciones, SolicitudBaja
+from src.models import Festivo, SolicitudVacaciones, SolicitudBaja, SaldoVacaciones, Fichaje
 from sqlalchemy import or_, and_
 
 
@@ -68,6 +68,8 @@ def verificar_solapamiento(usuario_id, fecha_inicio, fecha_fin, excluir_solicitu
     query_vac = SolicitudVacaciones.query.filter(
         SolicitudVacaciones.usuario_id == usuario_id,
         SolicitudVacaciones.es_actual == True,
+        # AÑADIDO: Ignorar cancelaciones (aunque estén aprobadas) y eliminaciones
+        SolicitudVacaciones.tipo_accion.notin_(['cancelacion', 'eliminacion']), 
         SolicitudVacaciones.estado.in_(['pendiente', 'aprobada']),
         SolicitudVacaciones.fecha_inicio <= fecha_fin,
         SolicitudVacaciones.fecha_fin >= fecha_inicio
@@ -75,7 +77,9 @@ def verificar_solapamiento(usuario_id, fecha_inicio, fecha_fin, excluir_solicitu
     
     # Si estamos editando, excluimos la propia solicitud para que no choque consigo misma
     if tipo == 'vacaciones' and excluir_solicitud_id:
-        query_vac = query_vac.filter(SolicitudVacaciones.id != excluir_solicitud_id)
+        sol_orig = SolicitudVacaciones.query.get(excluir_solicitud_id)
+        if sol_orig:
+            query_vac = query_vac.filter(SolicitudVacaciones.grupo_id != sol_orig.grupo_id)
         
     if query_vac.count() > 0:
         return True, "Ya tienes vacaciones solicitadas en estas fechas."
@@ -95,4 +99,99 @@ def verificar_solapamiento(usuario_id, fecha_inicio, fecha_fin, excluir_solicitu
     if query_baja.count() > 0:
         return True, "Ya tienes una baja registrada en estas fechas."
         
+    return False, None
+
+def simular_modificacion_vacaciones(usuario_id, solicitud_original_id, nueva_fecha_inicio, nueva_fecha_fin):
+    """
+    Calcula el impacto de modificar una solicitud de vacaciones existente.
+    Retorna un dict con claves: valido (bool), motivo (str), dias_diff (int), es_adelanto (bool).
+    """
+    # 1. Obtener solicitud original
+    original = SolicitudVacaciones.query.get(solicitud_original_id)
+    if not original:
+        return {'valido': False, 'motivo': 'Solicitud original no encontrada'}
+
+    # 2. Verificar Solapamiento (Excluyendo el grupo de la original)
+    hay_solape, msg = verificar_solapamiento(usuario_id, nueva_fecha_inicio, nueva_fecha_fin, excluir_solicitud_id=original.id, tipo='vacaciones')
+    if hay_solape:
+        return {'valido': False, 'motivo': msg}
+
+    # 3. Calcular nuevos días hábiles
+    dias_nuevos = calcular_dias_habiles(nueva_fecha_inicio, nueva_fecha_fin)
+    if dias_nuevos <= 0:
+        return {'valido': False, 'motivo': 'El rango seleccionado no tiene días hábiles.'}
+
+    # 4. Comprobar Saldo Anual (Modelo Sesame)
+    anio = nueva_fecha_inicio.year
+    saldo = SaldoVacaciones.query.filter_by(usuario_id=usuario_id, anio=anio).first()
+
+    # Si no existe saldo, asumimos 0 disponibles
+    dias_totales = saldo.dias_totales if saldo else 0
+    dias_disfrutados = saldo.dias_disfrutados if saldo else 0
+
+    # Días que liberamos de la original (solo si estaba aprobada/consumida)
+    # Nota: Si está pendiente, no ha consumido saldo técnicamente en 'dias_disfrutados', 
+    # pero para el cálculo proyectado asumimos el escenario de cambio.
+    dias_liberados = original.dias_solicitados
+
+    # Cálculo: (Disponibles Reales) + (Lo que devuelve) - (Lo que pide nuevo)
+    saldo_disponible_actual = dias_totales - dias_disfrutados
+    saldo_final_proyectado = saldo_disponible_actual + dias_liberados - dias_nuevos
+
+    diff = dias_nuevos - dias_liberados
+
+    return {
+        'valido': True,
+        'dias_diff': diff,
+        'es_adelanto': saldo_final_proyectado < 0,
+        'saldo_proyectado': saldo_final_proyectado,
+        'motivo': 'Adelanto de vacaciones' if saldo_final_proyectado < 0 else 'OK'
+    }
+
+def decimal_to_human(horas_decimales):
+    """
+    Convierte horas decimales (8.5) a formato legible (08:30).
+    Maneja None o 0 elegantemente.
+    """
+    if not horas_decimales:
+        return "00:00"
+    
+    # Asegurar que es positivo
+    horas_decimales = max(0, float(horas_decimales))
+    
+    horas = int(horas_decimales)
+    minutos = int((horas_decimales - horas) * 60)
+    
+    # Formateo con ceros a la izquierda (zfill)
+    return f"{str(horas).zfill(2)}:{str(minutos).zfill(2)}"
+
+def verificar_solapamiento_fichaje(usuario_id, fecha, hora_entrada, hora_salida, excluir_fichaje_id=None):
+    """
+    Verifica si un tramo horario se solapa con fichajes existentes activos del mismo día.
+    Retorna: True si hay solapamiento, False si está libre.
+    """
+    query = Fichaje.query.filter(
+        Fichaje.usuario_id == usuario_id,
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion',
+        Fichaje.fecha == fecha,
+        # Lógica de intersección de rangos:
+        # (InicioNuevo < FinExistente) AND (FinNuevo > InicioExistente)
+        Fichaje.hora_entrada < hora_salida,
+        Fichaje.hora_salida > hora_entrada
+    )
+
+    # Si estamos editando, excluimos el fichaje que estamos tocando para que no choque consigo mismo
+    # (Nota: dado el sistema de versiones, esto comprueba contra otros fichajes activos 'hermanos')
+    if excluir_fichaje_id:
+        # Excluimos por grupo_id para evitar conflictos con versiones anteriores del mismo fichaje
+        fichaje_actual = Fichaje.query.get(excluir_fichaje_id)
+        if fichaje_actual:
+            query = query.filter(Fichaje.grupo_id != fichaje_actual.grupo_id)
+
+    conflicto = query.first()
+    
+    if conflicto:
+        return True, f"Solapamiento con fichaje existente ({conflicto.hora_entrada.strftime('%H:%M')} - {conflicto.hora_salida.strftime('%H:%M')})"
+    
     return False, None

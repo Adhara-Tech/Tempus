@@ -19,7 +19,8 @@
             </div>
             <div class="col-md-4">
                 <h5>Días Disfrutados</h5>
-                <h2 class="text-warning">{{ current_user.dias_vacaciones - current_user.dias_vacaciones_disponibles() }}</h2>
+                <h2 class="text-warning">{{ current_user.dias_vacaciones - current_user.dias_vacaciones_disponibles() }}
+                </h2>
             </div>
             <div class="col-md-4">
                 <h5>Días Disponibles</h5>
@@ -48,26 +49,75 @@
                     {% for sol in solicitudes %}
                     <tr>
                         <td>{{ sol.fecha_solicitud.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ sol.fecha_inicio.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ sol.fecha_fin.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ sol.dias_solicitados }}</td>
+                        <td class="{% if sol.tipo_accion == 'cancelacion' %}text-decoration-line-through{% endif %}">{{
+                            sol.fecha_inicio.strftime('%d/%m/%Y') }}</td>
+                        <td class="{% if sol.tipo_accion == 'cancelacion' %}text-decoration-line-through{% endif %}">{{
+                            sol.fecha_fin.strftime('%d/%m/%Y') }}</td>
+                        <td class="{% if sol.tipo_accion == 'cancelacion' %}text-decoration-line-through{% endif %}">{{
+                            sol.dias_solicitados }}</td>
                         <td>
-                            {% if sol.estado == 'pendiente' %}
-                            <span class="badge bg-warning">Pendiente</span>
-                            {% elif sol.estado == 'aprobada' %}
+                            {# Estado Original #}
+                            {% if sol.estado == 'aprobada' %}
                             <span class="badge bg-success">Aprobada</span>
-                            {% elif sol.estado == 'rechazada' %}
-                            <span class="badge bg-danger">Rechazada/Cancelada</span>
+                            {% elif sol.estado == 'pendiente' %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% else %}
+                            <span class="badge bg-danger">{{ sol.estado|title }}</span>
+                            {% endif %}
+
+                            {# Estado Superpuesto (Indicador de proceso) #}
+                            {% if sol.cambio_pendiente %}
+                            <div class="mt-1">
+                                {% if sol.cambio_pendiente.tipo_accion == 'cancelacion' %}
+                                <span class="badge border border-danger text-danger bg-light">
+                                    <i class="bi bi-hourglass-split"></i> Cancelación en curso
+                                </span>
+                                {% elif sol.cambio_pendiente.tipo_accion == 'modificacion' %}
+                                <span class="badge border border-warning text-warning bg-light">
+                                    <i class="bi bi-hourglass-split"></i> Modificación en curso
+                                </span>
+                                {% endif %}
+                            </div>
                             {% endif %}
                         </td>
                         <td>
-                             {% if sol.estado == 'pendiente' %}
-                             <form method="POST" action="{{ url_for('ausencias.cancelar_vacaciones', id=sol.id) }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Cancelar esta solicitud?')">
+                            {% if sol.cambio_pendiente %}
+                            <span class="text-muted small">
+                                <i class="bi bi-lock"></i> Esperando aprobación...
+                            </span>
+                            {% else %}
+                            {% if sol.estado == 'pendiente' and sol.tipo_accion != 'eliminacion' %}
+                            <!-- Opción Cancelar si aún no está aprobada -->
+                            <form method="POST" action="{{ url_for('ausencias.cancelar_vacaciones', id=sol.id) }}"
+                                style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('¿Cancelar esta solicitud?')">
                                     <i class="bi bi-x-circle"></i> Cancelar
                                 </button>
                             </form>
-                            {% endif %}
+                            {% elif sol.estado == 'aprobada' %}
+                            {% if sol.fecha_fin < today %} <span class="text-muted small">
+                                <i class="bi bi-check-circle-fill"></i> Disfrutadas
+                                </span>
+                                {% else %}
+                                {% if sol.tiene_modificacion_pendiente %}
+                                <span class="badge bg-info text-dark">Pendiente Confirmación</span>
+                                {% else %}
+                                <a href="{{ url_for('ausencias.modificar_vacaciones', id=sol.id) }}"
+                                    class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-pencil"></i> Modificar
+                                </a>
+                                <form method="POST" action="{{ url_for('ausencias.cancelar_vacaciones', id=sol.id) }}"
+                                    style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('¿Solicitar cancelación?')">
+                                        <i class="bi bi-trash"></i> Cancelar
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% endif %}
+                                {% endif %}
+                                {% endif %}
                         </td>
                     </tr>
                     {% if sol.comentarios %}

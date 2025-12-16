@@ -66,7 +66,7 @@
             <div class="card bg-light mb-3">
                 <div class="card-body text-center">
                     <h5 class="card-title text-muted">Horas Hoy</h5>
-                    <h3 class="text-primary">{{ "%.2f"|format(horas_hoy) }}h</h3>
+                    <h3 class="text-primary">{{ horas_hoy | formato_hora }}h</h3>
                 </div>
             </div>
         </div>
@@ -74,7 +74,7 @@
             <div class="card bg-light mb-3">
                 <div class="card-body text-center">
                     <h5 class="card-title text-muted">Horas Esta Semana</h5>
-                    <h3 class="text-primary">{{ "%.2f"|format(horas_semana) }}h</h3>
+                    <h3 class="text-primary">{{ horas_semana | formato_hora }}h</h3>
                 </div>
             </div>
         </div>
@@ -82,14 +82,15 @@
 
     <div class="card mt-3">
         <div class="card-header">
-            Fichajes de Hoy
+            <i class="bi bi-calendar-week"></i> Fichajes de esta Semana
         </div>
         <div class="card-body">
-            {% if fichajes_hoy %}
+            {% if fichajes_semana %}
             <div class="table-responsive">
-                <table class="table table-sm table-striped">
+                <table class="table table-sm table-striped align-middle">
                     <thead>
                         <tr>
+                            <th>Fecha</th>
                             <th>Entrada</th>
                             <th>Salida</th>
                             <th>Pausa</th>
@@ -97,19 +98,20 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for fichaje in fichajes_hoy %}
+                        {% for fichaje in fichajes_semana %}
                         <tr>
+                            <td>{{ fichaje.fecha.strftime('%d/%m/%Y') }}</td>
                             <td>{{ fichaje.hora_entrada.strftime('%H:%M') }}</td>
                             <td>{{ fichaje.hora_salida.strftime('%H:%M') }}</td>
                             <td>{{ fichaje.pausa }}m</td>
-                            <td>{{ "%.2f"|format(fichaje.horas_trabajadas()) }}h</td>
+                            <td>{{ fichaje.horas_trabajadas() | formato_hora }}h</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             {% else %}
-            <p class="text-muted mb-0">No hay fichajes registrados para hoy.</p>
+            <p class="text-muted mb-0">No hay fichajes registrados esta semana.</p>
             {% endif %}
         </div>
     </div>

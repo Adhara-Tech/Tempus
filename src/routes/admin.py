@@ -169,8 +169,19 @@ def admin_tipos_ausencia():
         
         return redirect(url_for('admin.admin_tipos_ausencia'))
         
-    tipos = TipoAusencia.query.all()
+    tipos = TipoAusencia.query.order_by(TipoAusencia.activo.desc(), TipoAusencia.nombre).all()
     return render_template('admin/tipos_ausencia.html', tipos=tipos)
+
+@admin_bp.route('/admin/tipos-ausencia/toggle/<int:id>', methods=['POST'])
+@admin_required
+def admin_toggle_tipo_ausencia(id):
+    tipo = TipoAusencia.query.get_or_404(id)
+    tipo.activo = not tipo.activo
+    db.session.commit()
+    estado = "activado" if tipo.activo else "desactivado"
+    tipo_msg = 'success' if tipo.activo else 'warning'
+    flash(f'Tipo de ausencia "{tipo.nombre}" {estado}.', tipo_msg)
+    return redirect(url_for('admin.admin_tipos_ausencia'))
 
 # --- RESUMEN ---
 @admin_bp.route('/admin/resumen')

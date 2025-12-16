@@ -71,7 +71,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            <strong>{{ "%.2f"|format(fichaje.horas_trabajadas()) }}h</strong>
+                            <strong>{{ fichaje.horas_trabajadas() | formato_hora }}h</strong>
                         </td>
                         <td>
                             {% if fichaje.version > 1 %}

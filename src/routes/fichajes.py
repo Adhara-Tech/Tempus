@@ -1,12 +1,14 @@
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 from sqlalchemy import func, desc
+from src.utils import es_festivo, verificar_solapamiento, verificar_solapamiento_fichaje
 import uuid
 
 from src import db
 from src.models import Fichaje
+from src.utils import es_festivo, verificar_solapamiento
 from . import fichajes_bp
 
 @fichajes_bp.route('/fichajes')
@@ -48,10 +50,41 @@ def crear():
             pausa = int(request.form.get('pausa') or 0)
         except ValueError:
             pausa = 0
+
+        # --- VALIDACIONES DE BLOQUEO ---
+        
+        # 0. Validación básica de horas
+        if hora_salida <= hora_entrada:
+             flash('La hora de salida debe ser posterior a la entrada.', 'danger')
+             return redirect(url_for('fichajes.crear'))
+
+        # 1. CHECK DE SOLAPAMIENTO DE FICHAJES
+        hay_solape, msg_error = verificar_solapamiento_fichaje(current_user.id, fecha, hora_entrada, hora_salida)
+        
+        if hay_solape:
+            # Aquí usamos 'danger' para indicar error y NO guardamos
+            flash(f'Error: No se puede crear el fichaje. {msg_error}', 'danger')
+            #return redirect(url_for('fichajes.listar')) 
+            return redirect(url_for('fichajes.crear'))
+            
+        # --- LÓGICA DE ADVERTENCIAS ---
+        
+        # 1. Advertencia de Fin de Semana o Festivo
+        if es_festivo(fecha):
+            dia_semana = fecha.strftime('%A') # Opcional: traducir días si quieres
+            flash(f'Atención: Has registrado un fichaje fuera de horario laboral.', 'warning')
+        # 2. Advertencia de Vacaciones/Bajas (Solapamiento)
+        # Usamos verificar_solapamiento con la misma fecha de inicio y fin
+        en_ausencia, motivo_ausencia = verificar_solapamiento(current_user.id, fecha, fecha)
+        if en_ausencia:
+            # El mensaje de motivo_ausencia suele ser "Ya tienes vacaciones..."
+            flash(f'Atención: Tienes una ausencia aprobada o solicitada para este día: {motivo_ausencia}', 'warning')
+
+        # ------------------------------------
         
         fichaje = Fichaje(
             usuario_id=current_user.id,
-            editor_id=current_user.id, # El creador es el editor
+            editor_id=current_user.id, 
             grupo_id=str(uuid.uuid4()),
             version=1,
             es_actual=True,
@@ -188,3 +221,45 @@ def eliminar(id):
     if next_page:
         return redirect(next_page)
     return redirect(url_for('fichajes.listar'))
+
+@fichajes_bp.route('/fichajes/verificar-fecha', methods=['POST'])
+@login_required
+def verificar_fecha_ajax():
+    data = request.get_json()
+    fecha_str = data.get('fecha')
+    
+    if not fecha_str:
+        return jsonify({'status': 'ok'})
+        
+    try:
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Fecha inválida'})
+
+    warnings = []
+
+    # 1. Verificar Fin de Semana (Sábado=5, Domingo=6)
+    if fecha.weekday() >= 5:
+        dia = "Sábado" if fecha.weekday() == 5 else "Domingo"
+        warnings.append(f"Aviso: El {fecha.strftime('%d/%m/%Y')} es {dia} (Fin de semana).")
+
+    # 2. Verificar Festivo (Si no es finde, miramos si es festivo en BBDD)
+    # Nota: es_festivo() ya comprueba finde, pero aquí separamos para dar mensajes distintos
+    elif es_festivo(fecha): 
+        # Si entra aquí es que es festivo entre semana (lunes-viernes)
+        # Podríamos buscar la descripción del festivo si quisiéramos ser más precisos
+        warnings.append(f"Aviso: El {fecha.strftime('%d/%m/%Y')} es un día Festivo.")
+
+    # 3. y 4. Verificar Vacaciones y Bajas Activas
+    # verificar_solapamiento comprueba ambas tablas (SolicitudVacaciones y SolicitudBaja)
+    en_ausencia, motivo = verificar_solapamiento(current_user.id, fecha, fecha)
+    
+    if en_ausencia:
+        # 'motivo' contendrá "Ya tienes vacaciones..." o "Ya tienes una baja..."
+        warnings.append(f"Bloqueo: {motivo}")
+
+    # Respuesta
+    if warnings:
+        return jsonify({'status': 'warning', 'messages': warnings})
+        
+    return jsonify({'status': 'ok'})

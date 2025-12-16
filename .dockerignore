@@ -28,7 +28,6 @@ docker-compose.yml
 
 # Excluir archivos de entorno
 .env
-.env.*
 
 # Excluir documentación
 README.md

@@ -60,7 +60,7 @@
             Todos los usuarios.
         {% endif %}
     </span>
-    <span class="fs-5">Total Horas: <strong>{{ "%.2f"|format(total_horas) }}h</strong></span>
+    <span class="fs-5">Total Horas: <strong>{{ total_horas | formato_hora }}h</strong></span>
 </div>
 
 <div class="card">
@@ -90,7 +90,7 @@
                         <td>{{ f.hora_entrada.strftime('%H:%M') }}</td>
                         <td>{{ f.hora_salida.strftime('%H:%M') }}</td>
                         <td>{{ f.pausa }}m</td>
-                        <td class="fw-bold text-primary">{{ "%.2f"|format(f.horas_trabajadas()) }}h</td>
+                        <td class="fw-bold text-primary">{{ f.horas_trabajadas() | formato_hora }}h</td>
                         <td>
                             {% if f.version > 1 %}
                             <span class="badge bg-warning text-dark" title="Rectificado">v{{ f.version }}</span>

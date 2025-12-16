@@ -17,6 +17,9 @@ from flask_dance.contrib.google import make_google_blueprint, google
 from dotenv import load_dotenv
 load_dotenv()
 
+# Importamos utilidades
+from src.utils import decimal_to_human
+
 # Permitir transporte inseguro para OAuth en desarrollo (HTTP)
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
@@ -57,6 +60,7 @@ db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'
+login_manager.login_message_category = 'info'
 
 # INICIALIZAR SERVICIO DE EMAIL
 init_mail(app)
@@ -83,6 +87,11 @@ def aprobador_required(f):
             return redirect(url_for('main.index'))
         return f(*args, **kwargs)
     return decorated_function
+
+# FILTRO DE HORAS
+@app.template_filter('formato_hora')
+def formato_hora_filter(value):
+    return decimal_to_human(value)
 
 # REGISTRO DE BLUEPRINTS
 from src.routes import auth_bp, main_bp, fichajes_bp, ausencias_bp, admin_bp
@@ -125,5 +134,48 @@ def init_db():
             db.session.add(otros)
             db.session.commit()
             print("✅ Tipo de ausencia 'Otros' creado automáticamente.")
+
+        # 3. Migración de Saldos de Vacaciones (Tarea 3)
+        from datetime import datetime
+        from .models import SaldoVacaciones, SolicitudVacaciones
+        
+        current_year = datetime.now().year
+        usuarios = Usuario.query.all()
+        
+        for usuario in usuarios:
+            # Verificar si ya tiene saldo para este año
+            saldo = SaldoVacaciones.query.filter_by(usuario_id=usuario.id, anio=current_year).first()
+            
+            if not saldo:
+                # Calcular días disfrutados este año
+                # Solicitudes aprobadas y actuales que caigan en este año
+                # Nota: Una solicitud podría cruzar años, pero simplificamos asumiendo fechas dentro del año
+                # o que el usuario gestiona cortes. La instrucción dice "que caigan en el año actual".
+                # Para mayor precisión usamos intersection, pero seguiremos lógica simple de "solicitudes del año".
+                
+                dias_disfrutados = 0
+                solicitudes = SolicitudVacaciones.query.filter_by(usuario_id=usuario.id, estado='aprobada', es_actual=True).all()
+                
+                for sol in solicitudes:
+                    # Simple check: si la solicitud empieza o termina en este año
+                    if sol.fecha_inicio.year == current_year:
+                        dias_disfrutados += sol.dias_solicitados
+                
+                # Crear Saldo
+                nuevo_saldo = SaldoVacaciones(
+                    usuario_id=usuario.id,
+                    anio=current_year,
+                    dias_totales=usuario.dias_vacaciones, # Usamos el valor antiguo
+                    dias_disfrutados=dias_disfrutados
+                )
+                db.session.add(nuevo_saldo)
+                print(f"✅ SaldoVacaciones migrado para {usuario.email} ({current_year}): {dias_disfrutados}/{usuario.dias_vacaciones}")
+        
+        db.session.commit()
+        
         
         app.db_initialized = True
+
+from src.cli import cerrar_anio_command, import_users_command
+app.cli.add_command(cerrar_anio_command)
+app.cli.add_command(import_users_command)

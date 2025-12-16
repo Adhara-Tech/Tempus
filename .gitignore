@@ -19,6 +19,7 @@ instance/
 # Archivos de entorno (¡Importante!)
 .env
 .env.*
+!.env.example
 
 # Archivos del sistema operativo
 .DS_Store
