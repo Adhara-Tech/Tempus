@@ -92,21 +92,29 @@ def solicitar_vacaciones():
             flash('El rango seleccionado no contiene días laborables (fines de semana o festivos).', 'warning')
             return redirect(url_for('ausencias.solicitar_vacaciones'))
 
-        # 4. Validación de Saldo Disponible (De TARGET_USER)
+        # 4. LÓGICA DE SALDO Y ADELANTO
         saldo_actual = target_user.dias_vacaciones_disponibles()
-        if dias_calculados > saldo_actual:
-            flash(f'Saldo insuficiente para {target_user.nombre}. Solicitas {dias_calculados} días pero solo tiene {saldo_actual}.', 'danger')
+        
+        # Definimos el límite de endeudamiento (ej. puede adelantar hasta el 100% de sus vacaciones anuales)
+        max_deuda_permitida = target_user.dias_vacaciones 
+        saldo_proyectado = saldo_actual - dias_calculados
+
+        # Si el saldo proyectado es menor que el límite negativo permitido, bloqueamos
+        if saldo_proyectado < -max_deuda_permitida:
+            flash(f'Límite de adelanto excedido. No puedes tener una deuda mayor a {max_deuda_permitida} días.', 'danger')
             return redirect(url_for('ausencias.solicitar_vacaciones'))
         
-        # 5. Configurar Estado (Si lo crea Admin para otro -> APROBADA)
+        # 5. Configurar Estado
         es_admin_gestion = (current_user.rol == 'admin' and target_user.id != current_user.id)
         estado_inicial = 'aprobada' if es_admin_gestion else 'pendiente'
         aprobador_inicial = current_user.id if es_admin_gestion else None
         fecha_respuesta = datetime.utcnow() if es_admin_gestion else None
 
-        # 6. Creación de la Solicitud
+        # 6. Creación de la Solicitud (Igual que antes)
         solicitud = SolicitudVacaciones(
             usuario_id=target_user.id,
+            # ... resto de campos ...
+            #
             grupo_id=str(uuid.uuid4()),
             version=1,
             es_actual=True,
@@ -123,11 +131,14 @@ def solicitar_vacaciones():
         db.session.add(solicitud)
         db.session.commit()
         
-        msg_exito = f'Vacaciones registradas y aprobadas para {target_user.nombre}.' if es_admin_gestion else 'Solicitud de vacaciones enviada correctamente.'
-        flash(msg_exito, 'success')
+        # Mensajes Feedback
+        if saldo_proyectado < 0:
+            msg_exito = f'Solicitud enviada con ADELANTO de vacaciones. Tu saldo quedará en {saldo_proyectado} días.'
+            flash(msg_exito, 'warning') # Warning para llamar la atención
+        else:
+            msg_exito = 'Solicitud de vacaciones enviada correctamente.'
+            flash(msg_exito, 'success')
         
-        # Si es admin gestionando a otro, quizás redirigir a la lista general o panel admin
-        # Por ahora lo mandamos a su lista personal o dashboard
         return redirect(url_for('ausencias.listar_vacaciones'))
         
     return render_template('solicitar_vacaciones.html', usuarios=usuarios)

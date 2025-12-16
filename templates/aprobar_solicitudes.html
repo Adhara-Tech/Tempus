@@ -31,6 +31,12 @@
                             {% if sol.version > 1 %}
                             <span class="badge bg-warning text-dark" style="font-size: 0.75em;">v{{sol.version}}</span>
                             {% endif %}
+                            
+                            {% if sol.dias_adelanto and sol.dias_adelanto > 0 %}
+                            <span class="badge bg-info text-dark mt-1" title="Esta solicitud consume días del año siguiente">
+                                <i class="bi bi-info-circle"></i> Adelanto: {{ sol.dias_adelanto }} días
+                            </span>
+                            {% endif %}
                             {% if sol.tipo_accion == 'modificacion' %}
                             <span class="badge bg-warning text-dark mt-1">Modificación</span>
                             <div class="small text-muted">Versión v{{ sol.version }}</div>

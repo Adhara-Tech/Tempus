@@ -7,6 +7,7 @@ import uuid
 
 from src import db
 from src.models import Fichaje
+from src.utils import es_festivo, verificar_solapamiento
 from . import fichajes_bp
 
 @fichajes_bp.route('/fichajes')
@@ -48,10 +49,26 @@ def crear():
             pausa = int(request.form.get('pausa') or 0)
         except ValueError:
             pausa = 0
+            
+        # --- NUEVA LÓGICA DE ADVERTENCIAS ---
+        
+        # 1. Advertencia de Fin de Semana o Festivo
+        if es_festivo(fecha):
+            dia_semana = fecha.strftime('%A') # Opcional: traducir días si quieres
+            flash(f'Atención: Estás registrando un fichaje en un día no laborable (Festivo o Fin de Semana).', 'warning')
+
+        # 2. Advertencia de Vacaciones/Bajas (Solapamiento)
+        # Usamos verificar_solapamiento con la misma fecha de inicio y fin
+        en_ausencia, motivo_ausencia = verificar_solapamiento(current_user.id, fecha, fecha)
+        if en_ausencia:
+            # El mensaje de motivo_ausencia suele ser "Ya tienes vacaciones..."
+            flash(f'Atención: Tienes una ausencia aprobada o solicitada para este día: {motivo_ausencia}', 'warning')
+
+        # ------------------------------------
         
         fichaje = Fichaje(
             usuario_id=current_user.id,
-            editor_id=current_user.id, # El creador es el editor
+            editor_id=current_user.id, 
             grupo_id=str(uuid.uuid4()),
             version=1,
             es_actual=True,

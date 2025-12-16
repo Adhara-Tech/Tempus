@@ -42,8 +42,6 @@
                         </div>
                     </div>
 
-                    <!-- Elimino Selector de Tipo de Ausencia (No aplica a vacaciones) -->
-
                     <div class="mb-3">
                         <label class="form-label">Observaciones (Opcional)</label>
                         <textarea class="form-control" name="motivo" rows="2"
@@ -52,6 +50,11 @@
 
                     <div class="alert alert-info" id="diasInfo" style="display:none;">
                         <strong>Días laborables estimados:</strong> <span id="diasCount">0</span>
+                    </div>
+
+                    <div class="alert alert-warning" id="adelantoInfo" style="display:none;">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <strong>Aviso de Adelanto:</strong>
+                        No tienes suficiente saldo actual. Estás solicitando un adelanto de <span id="diasAdelanto">0</span> días del próximo año.
                     </div>
 
                     <div class="d-flex gap-2">
@@ -72,11 +75,19 @@
     document.getElementById('fecha_inicio').addEventListener('change', calcularDias);
     document.getElementById('fecha_fin').addEventListener('change', calcularDias);
 
+    // Obtenemos el saldo actual del usuario logueado
+    // Nota: Si usas el selector de admin para otro empleado, este valor no se actualizará dinámicamente sin AJAX extra.
+    const saldoDisponible = {{ current_user.dias_vacaciones_disponibles() }};
+
     async function calcularDias() {
         const inicio = document.getElementById('fecha_inicio').value;
         const fin = document.getElementById('fecha_fin').value;
+        
         const diasInfo = document.getElementById('diasInfo');
         const diasCount = document.getElementById('diasCount');
+        
+        const adelantoInfo = document.getElementById('adelantoInfo');
+        const diasAdelanto = document.getElementById('diasAdelanto');
 
         if (inicio && fin) {
             try {
@@ -91,23 +102,45 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    diasCount.textContent = data.dias;
+                    const diasSolicitados = data.dias;
+                    diasCount.textContent = diasSolicitados;
+                    
+                    // --- LÓGICA DE VISUALIZACIÓN DE ADELANTO ---
+                    if (diasSolicitados > saldoDisponible) {
+                        const deuda = diasSolicitados - saldoDisponible;
+                        diasAdelanto.textContent = deuda;
+                        
+                        // Mostrar advertencia y cambiar estilo de la info
+                        adelantoInfo.style.display = 'block';
+                        diasInfo.classList.remove('alert-info');
+                        diasInfo.classList.add('alert-warning');
+                    } else {
+                        // Ocultar advertencia y restaurar estilo
+                        adelantoInfo.style.display = 'none';
+                        diasInfo.classList.remove('alert-warning');
+                        diasInfo.classList.add('alert-info');
+                    }
+                    // -------------------------------------------
+
                     diasInfo.classList.remove('alert-danger');
-                    diasInfo.classList.add('alert-info');
                 } else {
                     diasCount.textContent = `Error: ${data.error || 'Cálculo no disponible'}`;
-                    diasInfo.classList.remove('alert-info');
+                    diasInfo.classList.remove('alert-info', 'alert-warning');
                     diasInfo.classList.add('alert-danger');
+                    adelantoInfo.style.display = 'none';
                 }
                 diasInfo.style.display = 'block';
 
             } catch (error) {
                 diasCount.textContent = 'Error al conectar con el servidor.';
+                diasInfo.classList.remove('alert-info', 'alert-warning');
                 diasInfo.classList.add('alert-danger');
                 diasInfo.style.display = 'block';
+                adelantoInfo.style.display = 'none';
             }
         } else {
             diasInfo.style.display = 'none';
+            adelantoInfo.style.display = 'none';
         }
     }
 </script>
