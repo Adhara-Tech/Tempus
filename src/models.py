@@ -87,6 +87,10 @@ class Usuario(UserMixin, db.Model):
 class SaldoVacaciones(db.Model):
     __tablename__ = 'saldos_vacaciones'
 
+    __table_args__ = (
+        UniqueConstraint('usuario_id', 'anio', name='unique_usuario_anio'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     anio = db.Column(db.Integer, nullable=False)
@@ -104,6 +108,15 @@ class SaldoVacaciones(db.Model):
 
 class Fichaje(db.Model):
     __tablename__ = 'fichajes'
+
+    __table_args__ = (
+        # 1. Índice principal: Acelera "Mis Fichajes" y los informes mensuales
+        # Orden: Filtramos por usuario -> solo actuales -> rango de fechas
+        db.Index('idx_fichaje_usuario_fecha', 'usuario_id', 'es_actual', 'fecha'),
+        
+        # 2. Índice secundario: Para agrupaciones por UUID (historial de versiones)
+        db.Index('idx_fichaje_grupo', 'grupo_id'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     
@@ -151,6 +164,15 @@ class Fichaje(db.Model):
 
 class SolicitudVacaciones(db.Model):
     __tablename__ = 'solicitudes_vacaciones'
+
+    __table_args__ = (
+        # 1. Índice para detección de solapamientos (Overlap Check) y listados
+        # Incluimos 'estado' porque siempre filtras 'pendiente' o 'aprobada'
+        db.Index('idx_vacaciones_solape', 'usuario_id', 'es_actual', 'estado', 'fecha_inicio', 'fecha_fin'),
+        
+        # 2. Índice para historial de versiones
+        db.Index('idx_vacaciones_grupo', 'grupo_id'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     grupo_id = db.Column(db.String(36), default=generate_uuid, nullable=False)
@@ -203,6 +225,12 @@ class SolicitudVacaciones(db.Model):
 
 class SolicitudBaja(db.Model):
     __tablename__ = 'solicitudes_bajas'
+
+    __table_args__ = (
+        # Mismo razonamiento que en vacaciones
+        db.Index('idx_bajas_solape', 'usuario_id', 'es_actual', 'estado', 'fecha_inicio', 'fecha_fin'),
+        db.Index('idx_bajas_grupo', 'grupo_id'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     grupo_id = db.Column(db.String(36), default=generate_uuid, nullable=False)

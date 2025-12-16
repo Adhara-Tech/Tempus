@@ -29,7 +29,7 @@ def index():
         
         solicitudes_pendientes_count = count_vac + count_bajas
 
-    # --- 2. LÓGICA DE RESUMEN DE FICHAJES (Movido aquí) ---
+    # --- 2. LÓGICA DE RESUMEN DE FICHAJES ---
     hoy = date.today()
     inicio_semana = hoy - timedelta(days=hoy.weekday())
     
@@ -41,13 +41,15 @@ def index():
     ).all()
     horas_hoy = sum([f.horas_trabajadas() for f in fichajes_hoy])
     
+    # MODIFICADO: Añadimos order_by para que la lista semanal salga ordenada
     fichajes_semana = Fichaje.query.filter(
         Fichaje.usuario_id == current_user.id,
         Fichaje.fecha >= inicio_semana,
         Fichaje.fecha <= hoy,
         Fichaje.es_actual == True,
         Fichaje.tipo_accion != 'eliminacion'
-    ).all()
+    ).order_by(Fichaje.fecha.desc(), Fichaje.hora_entrada.desc()).all()
+    
     horas_semana = sum([f.horas_trabajadas() for f in fichajes_semana])
     
     return render_template('index.html', 

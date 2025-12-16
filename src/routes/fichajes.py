@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, date, timedelta
 from calendar import monthrange
@@ -55,8 +55,7 @@ def crear():
         # 1. Advertencia de Fin de Semana o Festivo
         if es_festivo(fecha):
             dia_semana = fecha.strftime('%A') # Opcional: traducir días si quieres
-            flash(f'Atención: Estás registrando un fichaje en un día no laborable (Festivo o Fin de Semana).', 'warning')
-
+            flash(f'Atención: Has registrado un fichaje fuera de horario laboral.', 'warning')
         # 2. Advertencia de Vacaciones/Bajas (Solapamiento)
         # Usamos verificar_solapamiento con la misma fecha de inicio y fin
         en_ausencia, motivo_ausencia = verificar_solapamiento(current_user.id, fecha, fecha)
@@ -205,3 +204,45 @@ def eliminar(id):
     if next_page:
         return redirect(next_page)
     return redirect(url_for('fichajes.listar'))
+
+@fichajes_bp.route('/fichajes/verificar-fecha', methods=['POST'])
+@login_required
+def verificar_fecha_ajax():
+    data = request.get_json()
+    fecha_str = data.get('fecha')
+    
+    if not fecha_str:
+        return jsonify({'status': 'ok'})
+        
+    try:
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Fecha inválida'})
+
+    warnings = []
+
+    # 1. Verificar Fin de Semana (Sábado=5, Domingo=6)
+    if fecha.weekday() >= 5:
+        dia = "Sábado" if fecha.weekday() == 5 else "Domingo"
+        warnings.append(f"Aviso: El {fecha.strftime('%d/%m/%Y')} es {dia} (Fin de semana).")
+
+    # 2. Verificar Festivo (Si no es finde, miramos si es festivo en BBDD)
+    # Nota: es_festivo() ya comprueba finde, pero aquí separamos para dar mensajes distintos
+    elif es_festivo(fecha): 
+        # Si entra aquí es que es festivo entre semana (lunes-viernes)
+        # Podríamos buscar la descripción del festivo si quisiéramos ser más precisos
+        warnings.append(f"Aviso: El {fecha.strftime('%d/%m/%Y')} es un día Festivo.")
+
+    # 3. y 4. Verificar Vacaciones y Bajas Activas
+    # verificar_solapamiento comprueba ambas tablas (SolicitudVacaciones y SolicitudBaja)
+    en_ausencia, motivo = verificar_solapamiento(current_user.id, fecha, fecha)
+    
+    if en_ausencia:
+        # 'motivo' contendrá "Ya tienes vacaciones..." o "Ya tienes una baja..."
+        warnings.append(f"Bloqueo: {motivo}")
+
+    # Respuesta
+    if warnings:
+        return jsonify({'status': 'warning', 'messages': warnings})
+        
+    return jsonify({'status': 'ok'})

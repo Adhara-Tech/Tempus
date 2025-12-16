@@ -7,34 +7,48 @@
 
 <div class="card">
     <div class="card-body">
+        
+        <div id="alertaFecha" class="alert alert-warning" style="display: none;">
+            <i class="bi bi-exclamation-triangle-fill"></i> <span id="textoAlerta"></span>
+        </div>
+
         <form method="POST" id="formFichaje">
             <div class="mb-3">
                 <label class="form-label">Fecha</label>
-                <input type="date" class="form-control" name="fecha" required 
+                <input type="date" class="form-control" name="fecha" id="inputFecha" required 
                        value="{{ request.form.get('fecha', '') or now().strftime('%Y-%m-%d') }}">
             </div>
             
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Hora de Entrada</label>
                         <input type="time" class="form-control" name="hora_entrada" id="inputEntrada" required
                                value="{{ request.form.get('hora_entrada') or request.args.get('hora_entrada') or '' }}">
                     </div>
                 </div>
-                <div class="col-md-4">
+                
+                <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Hora de Salida</label>
                         <input type="time" class="form-control" name="hora_salida" id="inputSalida" required
                                value="{{ request.form.get('hora_salida') or request.args.get('hora_salida') or '' }}">
                     </div>
                 </div>
-                <div class="col-md-4">
+                
+                <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Pausa (minutos)</label>
-                        <input type="number" class="form-control" name="pausa" id="inputPausa" min="0" placeholder="Ej: 60"
+                        <input type="number" class="form-control" name="pausa" id="inputPausa" min="0" placeholder="0"
                                value="{{ request.form.get('pausa') or request.args.get('pausa') or '0' }}">
-                        <div class="form-text small">Tiempo de comida/descanso.</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-primary">Total Estimado</label>
+                        <input type="text" class="form-control fw-bold bg-light" id="inputTotal" readonly 
+                               value="0.00 h" style="border-color: #cfe2ff;">
                     </div>
                 </div>
             </div>
@@ -69,18 +83,102 @@
 </div>
 
 <script>
+    // --- 1. VERIFICACIÓN DE FECHA (AJAX) ---
+    document.getElementById('inputFecha').addEventListener('change', async function() {
+        const fecha = this.value;
+        const alertaBox = document.getElementById('alertaFecha');
+        const alertaTexto = document.getElementById('textoAlerta');
+        
+        if (!fecha) {
+            alertaBox.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch("{{ url_for('fichajes.verificar_fecha_ajax') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fecha: fecha })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'warning') {
+                alertaTexto.innerHTML = data.messages.join('<br>');
+                alertaBox.style.display = 'block';
+            } else {
+                alertaBox.style.display = 'none';
+                alertaTexto.textContent = '';
+            }
+
+        } catch (error) {
+            console.error('Error verificando fecha:', error);
+        }
+    });
+
+    // Validar fecha al cargar
+    if(document.getElementById('inputFecha').value) {
+        document.getElementById('inputFecha').dispatchEvent(new Event('change'));
+    }
+
+    // --- 2. CÁLCULO DE HORAS EN TIEMPO REAL ---
+    const entradaInput = document.getElementById('inputEntrada');
+    const salidaInput = document.getElementById('inputSalida');
+    const pausaInput = document.getElementById('inputPausa');
+    const totalInput = document.getElementById('inputTotal');
+
+    function calcularTotal() {
+        const entrada = entradaInput.value; // formato "HH:mm"
+        const salida = salidaInput.value;   // formato "HH:mm"
+        const pausa = parseInt(pausaInput.value) || 0;
+
+        if (entrada && salida) {
+            const [hEntrada, mEntrada] = entrada.split(':').map(Number);
+            const [hSalida, mSalida] = salida.split(':').map(Number);
+
+            // Convertir todo a minutos desde medianoche
+            const minutosEntrada = hEntrada * 60 + mEntrada;
+            let minutosSalida = hSalida * 60 + mSalida;
+
+            // Manejo de turno nocturno (si salida es menor que entrada, sumamos 24h)
+            if (minutosSalida < minutosEntrada) {
+                minutosSalida += 24 * 60;
+            }
+
+            const diffMinutos = (minutosSalida - minutosEntrada) - pausa;
+            const horasReales = Math.max(0, diffMinutos / 60); // Evitar negativos
+
+            totalInput.value = horasReales.toFixed(2) + " h";
+        } else {
+            totalInput.value = "0.00 h";
+        }
+    }
+
+    // Escuchar eventos en los 3 campos
+    [entradaInput, salidaInput, pausaInput].forEach(el => {
+        el.addEventListener('input', calcularTotal);
+        el.addEventListener('change', calcularTotal);
+    });
+
+    // --- 3. HELPER PARA SUGERENCIAS ---
     function aplicarHorario(entrada, salida, pausa) {
         document.getElementById('inputEntrada').value = entrada;
         document.getElementById('inputSalida').value = salida;
         document.getElementById('inputPausa').value = pausa;
         
-        // Efecto visual opcional para indicar que se ha cambiado
+        // Efecto visual
         const inputs = ['inputEntrada', 'inputSalida', 'inputPausa'];
         inputs.forEach(id => {
             const el = document.getElementById(id);
             el.classList.add('bg-light');
             setTimeout(() => el.classList.remove('bg-light'), 300);
         });
+
+        // IMPORTANTE: Recalcular al aplicar sugerencia
+        calcularTotal();
     }
+    
+    // Calcular al cargar por si hay datos previos (ej. error de validación del server)
+    calcularTotal();
 </script>
 {% endblock %}

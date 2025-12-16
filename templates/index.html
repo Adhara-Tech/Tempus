@@ -82,14 +82,15 @@
 
     <div class="card mt-3">
         <div class="card-header">
-            Fichajes de Hoy
+            <i class="bi bi-calendar-week"></i> Fichajes de esta Semana
         </div>
         <div class="card-body">
-            {% if fichajes_hoy %}
+            {% if fichajes_semana %}
             <div class="table-responsive">
-                <table class="table table-sm table-striped">
+                <table class="table table-sm table-striped align-middle">
                     <thead>
                         <tr>
+                            <th>Fecha</th>
                             <th>Entrada</th>
                             <th>Salida</th>
                             <th>Pausa</th>
@@ -97,8 +98,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for fichaje in fichajes_hoy %}
+                        {% for fichaje in fichajes_semana %}
                         <tr>
+                            <td>{{ fichaje.fecha.strftime('%d/%m/%Y') }}</td>
                             <td>{{ fichaje.hora_entrada.strftime('%H:%M') }}</td>
                             <td>{{ fichaje.hora_salida.strftime('%H:%M') }}</td>
                             <td>{{ fichaje.pausa }}m</td>
@@ -109,7 +111,7 @@
                 </table>
             </div>
             {% else %}
-            <p class="text-muted mb-0">No hay fichajes registrados para hoy.</p>
+            <p class="text-muted mb-0">No hay fichajes registrados esta semana.</p>
             {% endif %}
         </div>
     </div>
