@@ -1,0 +1,49 @@
+name: CD Release (Docker Hub)
+
+# Se dispara cuando se cierra un PR
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  build-and-push:
+    # CONDICIÓN:
+    # 1. El PR debe haber sido mergeado (merged == true)
+    # 2. La rama origen (head.ref) debe contener "release" (ej: release/v0.0.1)
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.head.ref, 'release')
+      
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Extraer versión de la rama
+        id: get_version
+        run: |
+          # Obtenemos el nombre de la rama, ej: release/v0.0.1
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          
+          # Usamos manipulación de strings de bash para quitar el prefijo "release/"
+          # Si la rama es "release/v0.0.1", esto devuelve "v0.0.1"
+          VERSION=${BRANCH_NAME#release/}
+          
+          echo "Detectada versión: $VERSION"
+          # Guardamos la variable para usarla en el paso de Docker
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: 3. Iniciar sesión en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          # Asegúrate de tener estos secrets configurados en GitHub
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 4. Construir y publicar imagen
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # Usamos el output del paso 2 para etiquetar la imagen
+          tags: pixelotes/tempus:${{ steps.get_version.outputs.VERSION }}
