@@ -68,6 +68,8 @@ def verificar_solapamiento(usuario_id, fecha_inicio, fecha_fin, excluir_solicitu
     query_vac = SolicitudVacaciones.query.filter(
         SolicitudVacaciones.usuario_id == usuario_id,
         SolicitudVacaciones.es_actual == True,
+        # AÑADIDO: Ignorar cancelaciones (aunque estén aprobadas) y eliminaciones
+        SolicitudVacaciones.tipo_accion.notin_(['cancelacion', 'eliminacion']), 
         SolicitudVacaciones.estado.in_(['pendiente', 'aprobada']),
         SolicitudVacaciones.fecha_inicio <= fecha_fin,
         SolicitudVacaciones.fecha_fin >= fecha_inicio

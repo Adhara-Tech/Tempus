@@ -176,6 +176,26 @@ class SolicitudVacaciones(db.Model):
 
     aprobador = db.relationship('Usuario', foreign_keys=[aprobador_id])
     editor = db.relationship('Usuario', foreign_keys=[editor_id])
+
+    @property
+    def dias_adelanto(self):
+        """
+        Calcula dinámicamente cuántos días de adelanto supone esta solicitud
+        basándose en el saldo actual del usuario para el año de la solicitud.
+        """
+        if not self.usuario:
+            return 0
+            
+        # Obtenemos el saldo disponible del usuario para el año de estas vacaciones
+        # Nota: Usamos self.fecha_inicio.year para ser precisos con el año fiscal
+        anio = self.fecha_inicio.year
+        disponible = self.usuario.dias_vacaciones_disponibles(anio)
+        
+        # Si pide más de lo que tiene, la diferencia es el adelanto
+        if self.dias_solicitados > disponible:
+            return self.dias_solicitados - disponible
+            
+        return 0
     
     def __repr__(self):
         return f'<SolicitudVacaciones {self.usuario.nombre} - {self.fecha_inicio}>'

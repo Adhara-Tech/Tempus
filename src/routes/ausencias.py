@@ -20,19 +20,30 @@ def listar_vacaciones():
     raw_solicitudes = SolicitudVacaciones.query.filter_by(usuario_id=current_user.id, es_actual=True)\
         .order_by(SolicitudVacaciones.fecha_solicitud.desc()).all()
     
-    # 2. Separar padres (aprobadas/rechazadas) de hijos pendientes (modificaciones/cancelaciones)
+    # 2. Separar padres de hijos y FILTRAR CANCELADAS
     solicitudes_principales = []
-    cambios_pendientes = {} # Dict: grupo_id -> solicitud_cambio
+    cambios_pendientes = {} 
 
     for sol in raw_solicitudes:
-        # Si es una petición de cambio pendiente, la guardamos en el diccionario
+        # A. Si es una petición de cambio PENDIENTE, la guardamos para vincularla después
         if sol.estado == 'pendiente' and sol.tipo_accion in ['cancelacion', 'modificacion']:
             cambios_pendientes[sol.grupo_id] = sol
-        else:
-            # Si es una solicitud normal (creación pendiente) o una ya aprobada/rechazada
-            solicitudes_principales.append(sol)
+            continue # Pasamos al siguiente ciclo
+        
+        # Ocultar si está rechazada (esto incluye las canceladas manualmente por el usuario cuando eran pendientes)
+        if sol.estado == 'rechazada':
+            continue
+            
+        # Ocultar si es una "Solicitud de Cancelación" que ya fue Aprobada
+        # (Esto significa que el proceso de cancelación finalizó con éxito, por lo que la vacación ya no existe)
+        if sol.tipo_accion == 'cancelacion' and sol.estado == 'aprobada':
+            continue
+        # -----------------------------------------------------
 
-    # 3. Vincular el cambio pendiente a su principal (Monkey patching temporal para la vista)
+        # Si pasa los filtros, es una solicitud válida para mostrar (Pendiente, Aprobada, etc.)
+        solicitudes_principales.append(sol)
+
+    # 3. Vincular el cambio pendiente a su principal
     for sol in solicitudes_principales:
         sol.cambio_pendiente = cambios_pendientes.get(sol.grupo_id)
 
