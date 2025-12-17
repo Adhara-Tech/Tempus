@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import current_user
 from werkzeug.security import generate_password_hash
-from sqlalchemy import func, or_  # <--- AÑADIDO or_
+from sqlalchemy import func, or_, case, cast, Float
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 
@@ -241,69 +241,162 @@ def admin_toggle_tipo_ausencia(id):
 @admin_bp.route('/admin/resumen')
 @admin_required
 def admin_resumen():
-    # 1. Obtener filtros
+    """
+    Panel de resumen global anual con estadísticas agregadas.
+    Optimizado para evitar N+1 queries.
+    """
+    # ========================================
+    # 1. OBTENER FILTROS
+    # ========================================
     usuario_id = request.args.get('usuario_id', type=int)
-    # Por defecto usamos el año actual si no se especifica
     anio = request.args.get('anio', type=int, default=datetime.now().year)
     
-    # 2. Definir rango de fechas del año seleccionado (para vacaciones y estadísticas anuales)
+    # ========================================
+    # 2. DEFINIR RANGO DE FECHAS
+    # ========================================
     fecha_inicio_anio = date(anio, 1, 1)
     fecha_fin_anio = date(anio, 12, 31)
 
-    # 3. Obtener usuarios (para el selector y para el bucle)
+    # ========================================
+    # 3. OBTENER USUARIOS BASE
+    # ========================================
     all_usuarios = Usuario.query.order_by(Usuario.nombre).all()
     
-    # Filtramos la lista principal si se seleccionó un usuario
+    # Filtrar usuarios a mostrar
     query_users = Usuario.query.filter(Usuario.rol != 'admin')
     if usuario_id:
         query_users = query_users.filter(Usuario.id == usuario_id)
     usuarios_a_mostrar = query_users.all()
     
+    # Si no hay usuarios, retornar vacío
+    if not usuarios_a_mostrar:
+        return render_template('admin/resumen.html', 
+                             resumen_usuarios=[],
+                             usuarios=all_usuarios,
+                             usuario_seleccionado=usuario_id,
+                             anio_actual=anio,
+                             total_dias_disfrutados=0,
+                             total_dias_restantes=0)
+    
+    # ========================================
+    # 4. QUERY AGREGADA DE FICHAJES (UNA SOLA QUERY)
+    # ========================================
+    from sqlalchemy import case, cast, Float
+    from sqlalchemy.sql import extract
+    
+    # Subquery para calcular horas trabajadas en SQL
+    # Fórmula: (hora_salida - hora_entrada en segundos / 3600) - (pausa / 60)
+    horas_trabajadas_expr = (
+        # Convertir TIME a segundos y luego a horas
+        (
+            (extract('hour', Fichaje.hora_salida) * 3600 + 
+             extract('minute', Fichaje.hora_salida) * 60) -
+            (extract('hour', Fichaje.hora_entrada) * 3600 + 
+             extract('minute', Fichaje.hora_entrada) * 60)
+        ) / 3600.0
+    ) - (cast(Fichaje.pausa, Float) / 60.0)
+    
+    # Query agregada por usuario
+    fichajes_stats_query = db.session.query(
+        Fichaje.usuario_id,
+        func.count(Fichaje.id).label('total_fichajes'),
+        func.sum(horas_trabajadas_expr).label('total_horas')
+    ).filter(
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion',
+        Fichaje.fecha >= fecha_inicio_anio,
+        Fichaje.fecha <= fecha_fin_anio
+    )
+    
+    # Si hay filtro de usuario, aplicarlo
+    if usuario_id:
+        fichajes_stats_query = fichajes_stats_query.filter(
+            Fichaje.usuario_id == usuario_id
+        )
+    
+    fichajes_stats = fichajes_stats_query.group_by(Fichaje.usuario_id).all()
+    
+    # Convertir a diccionario para lookup O(1)
+    fichajes_dict = {
+        stat.usuario_id: {
+            'total_fichajes': stat.total_fichajes or 0,
+            'total_horas': float(stat.total_horas or 0)
+        }
+        for stat in fichajes_stats
+    }
+    
+    # ========================================
+    # 5. QUERY AGREGADA DE VACACIONES (UNA SOLA QUERY)
+    # ========================================
+    vacaciones_stats_query = db.session.query(
+        SolicitudVacaciones.usuario_id,
+        func.sum(SolicitudVacaciones.dias_solicitados).label('dias_disfrutados')
+    ).filter(
+        SolicitudVacaciones.estado == 'aprobada',
+        SolicitudVacaciones.es_actual == True,
+        SolicitudVacaciones.tipo_accion != 'cancelacion',  # Excluir cancelaciones
+        SolicitudVacaciones.fecha_inicio >= fecha_inicio_anio,
+        SolicitudVacaciones.fecha_inicio <= fecha_fin_anio
+    )
+    
+    if usuario_id:
+        vacaciones_stats_query = vacaciones_stats_query.filter(
+            SolicitudVacaciones.usuario_id == usuario_id
+        )
+    
+    vacaciones_stats = vacaciones_stats_query.group_by(
+        SolicitudVacaciones.usuario_id
+    ).all()
+    
+    # Convertir a diccionario
+    vacaciones_dict = {
+        stat.usuario_id: int(stat.dias_disfrutados or 0)
+        for stat in vacaciones_stats
+    }
+    
+    # ========================================
+    # 6. CONSTRUIR RESUMEN CON LOOKUPS O(1)
+    # ========================================
     resumen_usuarios = []
     
     for usuario in usuarios_a_mostrar:
-        # A. Fichajes del AÑO completo (Conteo y Horas)
-        fichajes_anio = Fichaje.query.filter(
-            Fichaje.usuario_id == usuario.id,
-            Fichaje.es_actual == True,
-            Fichaje.tipo_accion != 'eliminacion',
-            Fichaje.fecha >= fecha_inicio_anio,
-            Fichaje.fecha <= fecha_fin_anio
-        ).all()
+        # Obtener stats de fichajes (default 0 si no existe)
+        fichaje_stats = fichajes_dict.get(usuario.id, {
+            'total_fichajes': 0,
+            'total_horas': 0.0
+        })
         
-        # B. Vacaciones disfrutadas EN ESE AÑO
-        # (Importante: filtramos por fecha para que el saldo sea correcto por año)
-        dias_aprobados = db.session.query(func.sum(SolicitudVacaciones.dias_solicitados)).filter(
-            SolicitudVacaciones.usuario_id == usuario.id,
-            SolicitudVacaciones.estado == 'aprobada',
-            SolicitudVacaciones.es_actual == True,
-            SolicitudVacaciones.fecha_inicio >= fecha_inicio_anio,
-            SolicitudVacaciones.fecha_inicio <= fecha_fin_anio
-        ).scalar() or 0
+        # Obtener días disfrutados (default 0 si no existe)
+        dias_disfrutados = vacaciones_dict.get(usuario.id, 0)
         
-        # Calculamos horas totales del año (puede ser costoso si hay muchos, pero útil)
-        total_horas_anio = sum(f.horas_trabajadas() for f in fichajes_anio)
-
+        # Calcular días restantes
+        dias_restantes = usuario.dias_vacaciones - dias_disfrutados
+        
         resumen_usuarios.append({
             'usuario': usuario,
-            'fichajes_count': len(fichajes_anio),
-            'horas_totales': total_horas_anio,
+            'fichajes_count': fichaje_stats['total_fichajes'],
+            'horas_totales': fichaje_stats['total_horas'],
             'dias_vacaciones_totales': usuario.dias_vacaciones,
-            'dias_disfrutados': dias_aprobados,
-            'dias_restantes': usuario.dias_vacaciones - dias_aprobados
+            'dias_disfrutados': dias_disfrutados,
+            'dias_restantes': dias_restantes
         })
     
-    # Totales globales para el pie de página
+    # ========================================
+    # 7. CALCULAR TOTALES GLOBALES
+    # ========================================
     total_dias_disfrutados = sum(r['dias_disfrutados'] for r in resumen_usuarios)
     total_dias_restantes = sum(r['dias_restantes'] for r in resumen_usuarios)
     
+    # ========================================
+    # 8. RENDERIZAR TEMPLATE
+    # ========================================
     return render_template('admin/resumen.html', 
-                           resumen_usuarios=resumen_usuarios, 
-                           usuarios=all_usuarios, # Para el selector
-                           usuario_seleccionado=usuario_id,
-                           anio_actual=anio,
-                           total_dias_disfrutados=total_dias_disfrutados,
-                           total_dias_restantes=total_dias_restantes)
+                         resumen_usuarios=resumen_usuarios, 
+                         usuarios=all_usuarios,
+                         usuario_seleccionado=usuario_id,
+                         anio_actual=anio,
+                         total_dias_disfrutados=total_dias_disfrutados,
+                         total_dias_restantes=total_dias_restantes)
 
 # --- AUDITORÍA UNIFICADA (Fichajes + Ausencias + Impersonation) ---
 @admin_bp.route('/admin/auditoria')
