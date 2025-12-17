@@ -1,5 +1,5 @@
 import pytest
-from src import app, db
+from src import app, db, limiter
 from src.models import Usuario, TipoAusencia, Aprobador
 from werkzeug.security import generate_password_hash
 
@@ -10,8 +10,12 @@ def test_app():
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "WTF_CSRF_ENABLED": False,
-        "SERVER_NAME": "localhost.localdomain"
+        "SERVER_NAME": "localhost.localdomain",
+        "RATELIMIT_ENABLED": False  # Disable rate limiting for tests
     })
+
+    # Reset limiter storage to avoid rate limit carryover between tests
+    limiter.reset()
 
     # Contexto de la aplicación
     with app.app_context():
