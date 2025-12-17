@@ -13,8 +13,39 @@ from . import admin_bp
 @admin_bp.route('/admin/usuarios')
 @admin_required
 def admin_usuarios():
-    usuarios = Usuario.query.all()
+    # MODIFICADO: No cargamos todos los usuarios de golpe para la vista inicial
+    # Se obtendrán por AJAX o paginación si fuera necesario
+    page = request.args.get('page', 1, type=int)
+    usuarios = Usuario.query.paginate(page=page, per_page=20)
     return render_template('admin/usuarios.html', usuarios=usuarios)
+
+@admin_bp.route('/admin/api/usuarios/buscar')
+@admin_required
+def admin_buscar_usuarios():
+    """
+    Endpoint AJAX para buscar usuarios por nombre/email.
+    Retorna JSON para autocompletado typeahead.
+    """
+    query = request.args.get('q', '')
+    if not query or len(query) < 2:
+        return {'results': []}
+    
+    # Búsqueda insensible a mayúsculas
+    usuarios = Usuario.query.filter(
+        or_(
+            Usuario.nombre.ilike(f'%{query}%'),
+            Usuario.email.ilike(f'%{query}%')
+        )
+    ).limit(20).all()
+    
+    results = [
+        {
+            'id': u.id,
+            'text': f"{u.nombre} ({u.email})"
+        } for u in usuarios
+    ]
+    
+    return {'results': results}
 
 @admin_bp.route('/admin/usuarios/crear', methods=['GET', 'POST'])
 @admin_required
@@ -95,7 +126,11 @@ def admin_eliminar_usuario(id):
 @admin_bp.route('/admin/aprobadores')
 @admin_required
 def admin_aprobadores():
-    aprobadores = Aprobador.query.all()
+    # Optimización N+1
+    aprobadores = Aprobador.query.options(
+        db.joinedload(Aprobador.usuario),
+        db.joinedload(Aprobador.aprobador)
+    ).all()
     usuarios = Usuario.query.all()
     return render_template('admin/aprobadores.html', aprobadores=aprobadores, usuarios=usuarios)
 
@@ -260,13 +295,23 @@ def admin_resumen():
     # ========================================
     # 3. OBTENER USUARIOS BASE
     # ========================================
-    all_usuarios = Usuario.query.order_by(Usuario.nombre).all()
-    
     # Filtrar usuarios a mostrar
-    query_users = Usuario.query.filter(Usuario.rol != 'admin')
+    # MODIFICADO: Solo cargamos el usuario seleccionado, O ninguno (esperando búsqueda)
+    # Ya no cargamos query_users.all() si no hay filtro
+    
+    usuarios_a_mostrar = []
+    
+    # query_users = Usuario.query.filter(Usuario.rol != 'admin') <-- ELIMINADO CARGA MASIVA
+    
+    usuario_obj = None
     if usuario_id:
-        query_users = query_users.filter(Usuario.id == usuario_id)
-    usuarios_a_mostrar = query_users.all()
+        usuario_obj = Usuario.query.get(usuario_id)
+        if usuario_obj:
+            usuarios_a_mostrar = [usuario_obj]
+    else:
+        # Opcional: Mostrar top 10 o nada. Mostramos nada para forzar uso de búsqueda en empresas grandes
+        # O mostramos los primeros 5 para que no se vea vacío
+        usuarios_a_mostrar = Usuario.query.filter(Usuario.rol != 'admin').limit(10).all()
     
     # Si no hay usuarios, retornar vacío
     if not usuarios_a_mostrar:
@@ -390,10 +435,11 @@ def admin_resumen():
     # ========================================
     # 8. RENDERIZAR TEMPLATE
     # ========================================
+
     return render_template('admin/resumen.html', 
                          resumen_usuarios=resumen_usuarios, 
-                         usuarios=all_usuarios,
-                         usuario_seleccionado=usuario_id,
+                         # usuarios=all_usuarios,  <-- ELIMINADO
+                         usuario_seleccionado=usuario_obj, # Pasamos objeto entero si existe
                          anio_actual=anio,
                          total_dias_disfrutados=total_dias_disfrutados,
                          total_dias_restantes=total_dias_restantes)
@@ -564,13 +610,17 @@ def admin_fichajes():
         
     total_horas = total_horas.scalar() or 0
     
-    usuarios = Usuario.query.order_by(Usuario.nombre).all()
+    # usuarios = Usuario.query.order_by(Usuario.nombre).all() <-- ELIMINADO
+    
+    usuario_obj = None
+    if usuario_id:
+        usuario_obj = Usuario.query.get(usuario_id)
     
     return render_template('/admin/admin_fichajes.html',
                            fichajes=pagination.items,
                            pagination=pagination,
-                           usuarios=usuarios,
-                           usuario_seleccionado=usuario_id,
+                           # usuarios=usuarios, <-- ELIMINADO
+                           usuario_seleccionado=usuario_obj, # Pasamos objeto completo
                            mes_actual=mes,
                            anio_actual=anio,
                            total_horas=total_horas)
@@ -626,12 +676,16 @@ def admin_gestion_ausencias():
     total_dias = sum(r.dias_solicitados for r in resultados)
     
     # 6. Datos para selectores
-    usuarios = Usuario.query.order_by(Usuario.nombre).all()
+    # usuarios = Usuario.query.order_by(Usuario.nombre).all() <-- ELIMINADO
+    
+    usuario_obj = None
+    if usuario_id:
+        usuario_obj = Usuario.query.get(usuario_id)
     
     return render_template('admin/gestion_ausencias.html', 
                            ausencias=resultados,
-                           usuarios=usuarios,
-                           usuario_seleccionado=usuario_id,
+                           # usuarios=usuarios, <-- ELIMINADO
+                           usuario_seleccionado=usuario_obj,
                            tipo_seleccionado=tipo_filtro,
                            fecha_inicio=fecha_inicio_str,
                            fecha_fin=fecha_fin_str,

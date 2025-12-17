@@ -15,14 +15,13 @@
         <form method="GET" class="row g-3 align-items-end">
             <div class="col-md-4">
                 <label class="form-label fw-bold">Empleado</label>
-                <select name="usuario_id" class="form-select" onchange="this.form.submit()">
-                    <option value="">-- Todos los empleados --</option>
-                    {% for u in usuarios %}
-                    <option value="{{ u.id }}" {% if u.id==usuario_seleccionado %}selected{% endif %}>
-                        {{ u.nombre }} ({{ u.email }})
-                    </option>
-                    {% endfor %}
-                </select>
+                <input type="hidden" name="usuario_id" id="usuario_id_hidden"
+                    value="{{ usuario_seleccionado.id if usuario_seleccionado else '' }}">
+                <div class="position-relative">
+                    <input type="text" id="usuario_search_input" class="form-control" placeholder="Buscar empleado..."
+                        autocomplete="off"
+                        value="{{ usuario_seleccionado.nombre + ' (' + usuario_seleccionado.email + ')' if usuario_seleccionado else '' }}">
+                </div>
             </div>
 
             <div class="col-md-3">
@@ -176,4 +175,13 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/user_search.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        setupUserSearch('usuario_search_input', 'usuario_id_hidden', true);
+    });
+</script>
 {% endblock %}

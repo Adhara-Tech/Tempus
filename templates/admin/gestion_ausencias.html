@@ -14,37 +14,41 @@
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end">
             <div class="col-md-4">
-                <label class="form-label fw-bold">Empleado</label>
-                <select name="usuario_id" class="form-select" onchange="this.form.submit()">
-                    <option value="">-- Todos los empleados --</option>
-                    {% for u in usuarios %}
-                    <option value="{{ u.id }}" {% if u.id == usuario_seleccionado %}selected{% endif %}>
-                        {{ u.nombre }} ({{ u.email }})
-                    </option>
-                    {% endfor %}
-                </select>
+                <!-- <label class="form-label fw-bold">Empleado</label> -->
+
+                <input type="hidden" name="usuario_id" id="usuario_id_hidden"
+                    value="{{ usuario_seleccionado.id if usuario_seleccionado else '' }}">
+                <div class="position-relative">
+                    <input type="text" id="usuario_search_input" class="form-control" placeholder="Buscar empleado..."
+                        autocomplete="off"
+                        value="{{ usuario_seleccionado.nombre + ' (' + usuario_seleccionado.email + ')' if usuario_seleccionado else '' }}">
+                </div>
             </div>
-            
+
             <div class="col-md-2">
                 <label class="form-label">Tipo</label>
                 <select name="tipo" class="form-select" onchange="this.form.submit()">
-                    <option value="todos" {% if tipo_seleccionado == 'todos' %}selected{% endif %}>Todos</option>
-                    <option value="vacaciones" {% if tipo_seleccionado == 'vacaciones' %}selected{% endif %}>Vacaciones</option>
-                    <option value="bajas" {% if tipo_seleccionado == 'bajas' %}selected{% endif %}>Bajas y Otros</option>
+                    <option value="todos" {% if tipo_seleccionado=='todos' %}selected{% endif %}>Todos</option>
+                    <option value="vacaciones" {% if tipo_seleccionado=='vacaciones' %}selected{% endif %}>Vacaciones
+                    </option>
+                    <option value="bajas" {% if tipo_seleccionado=='bajas' %}selected{% endif %}>Bajas y Otros</option>
                 </select>
             </div>
 
             <div class="col-md-2">
                 <label class="form-label">Desde</label>
-                <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio or '' }}" onchange="this.form.submit()">
+                <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio or '' }}"
+                    onchange="this.form.submit()">
             </div>
             <div class="col-md-2">
                 <label class="form-label">Hasta</label>
-                <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin or '' }}" onchange="this.form.submit()">
+                <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin or '' }}"
+                    onchange="this.form.submit()">
             </div>
-            
+
             <div class="col-md-2">
-                <a href="{{ url_for('admin.admin_gestion_ausencias') }}" class="btn btn-outline-secondary w-100">Limpiar</a>
+                <a href="{{ url_for('admin.admin_gestion_ausencias') }}"
+                    class="btn btn-outline-secondary w-100">Limpiar</a>
             </div>
         </form>
     </div>
@@ -54,9 +58,9 @@
     <span>
         Mostrando <strong>{{ ausencias|length }}</strong> registros.
         {% if usuario_seleccionado %}
-            Usuario filtrado.
+        Usuario filtrado.
         {% else %}
-            Todos los usuarios.
+        Todos los usuarios.
         {% endif %}
     </span>
     <span class="fs-5">Total Días: <strong>{{ total_dias }}</strong></span>
@@ -75,7 +79,8 @@
                         <th>Días</th>
                         <th>Estado</th>
                         <th>Motivo</th>
-                        <th class="text-end">Acciones</th> </tr>
+                        <th class="text-end">Acciones</th>
+                    </tr>
                 </thead>
                 <tbody>
                     {% for item in ausencias %}
@@ -94,24 +99,27 @@
                         <td class="fw-bold">{{ item.dias_solicitados }}</td>
                         <td>
                             {% if item.estado == 'pendiente' %}
-                                <span class="badge bg-warning text-dark">Pendiente</span>
+                            <span class="badge bg-warning text-dark">Pendiente</span>
                             {% elif item.estado == 'aprobada' %}
-                                <span class="badge bg-success">Aprobada</span>
+                            <span class="badge bg-success">Aprobada</span>
                             {% elif item.estado == 'rechazada' %}
-                                <span class="badge bg-danger">Rechazada</span>
+                            <span class="badge bg-danger">Rechazada</span>
                             {% endif %}
-                            
+
                             {% if item.version > 1 %}
-                                <span class="badge bg-warning text-dark ms-1" title="Versión {{ item.version }}">v{{ item.version }}</span>
+                            <span class="badge bg-warning text-dark ms-1" title="Versión {{ item.version }}">v{{
+                                item.version }}</span>
                             {% endif %}
                         </td>
                         <td>
-                            <small class="text-muted d-inline-block text-truncate" style="max-width: 200px;" title="{{ item.motivo }}">
+                            <small class="text-muted d-inline-block text-truncate" style="max-width: 200px;"
+                                title="{{ item.motivo }}">
                                 {{ item.motivo or '-' }}
                             </small>
                         </td>
                         <td class="text-end">
-                            <button class="btn btn-sm btn-outline-secondary" disabled><i class="bi bi-three-dots"></i></button>
+                            <button class="btn btn-sm btn-outline-secondary" disabled><i
+                                    class="bi bi-three-dots"></i></button>
                         </td>
                     </tr>
                     {% else %}
@@ -126,4 +134,13 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/user_search.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        setupUserSearch('usuario_search_input', 'usuario_id_hidden', true);
+    });
+</script>
 {% endblock %}

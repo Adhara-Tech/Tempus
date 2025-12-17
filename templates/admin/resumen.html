@@ -5,12 +5,12 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-file-earmark-bar-graph"></i> Resumen Global Anual</h1>
-    
+
     <div>
         <button onclick="exportTableToCSV('resumen_global.csv', false)" class="btn btn-success me-2">
             <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
         </button>
-        </div>
+    </div>
 </div>
 
 <div class="card mb-4 bg-light">
@@ -18,27 +18,25 @@
         <form method="GET" class="row g-3 align-items-end">
             <div class="col-md-4">
                 <label class="form-label fw-bold">Empleado</label>
-                <select name="usuario_id" class="form-select" onchange="this.form.submit()">
-                    <option value="">-- Todos los empleados --</option>
-                    {% for u in usuarios %}
-                        {% if u.rol != 'admin' %}
-                        <option value="{{ u.id }}" {% if u.id == usuario_seleccionado %}selected{% endif %}>
-                            {{ u.nombre }}
-                        </option>
-                        {% endif %}
-                    {% endfor %}
-                </select>
+                <input type="hidden" name="usuario_id" id="usuario_id_hidden"
+                    value="{{ usuario_seleccionado.id if usuario_seleccionado else '' }}">
+                <div class="position-relative">
+                    <input type="text" id="usuario_search_input" class="form-control" placeholder="Buscar empleado..."
+                        autocomplete="off"
+                        value="{{ usuario_seleccionado.nombre + ' (' + usuario_seleccionado.email + ')' if usuario_seleccionado else '' }}">
+                </div>
+                <small class="text-muted">Escribe para buscar...</small>
             </div>
 
             <div class="col-md-3">
                 <label class="form-label fw-bold">Año</label>
                 <select name="anio" class="form-select" onchange="this.form.submit()">
                     {% for a in range(2023, 2026) %}
-                    <option value="{{ a }}" {% if a == anio_actual %}selected{% endif %}>{{ a }}</option>
+                    <option value="{{ a }}" {% if a==anio_actual %}selected{% endif %}>{{ a }}</option>
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div class="col-md-2">
                 <a href="{{ url_for('admin.admin_resumen') }}" class="btn btn-outline-secondary w-100">
                     <i class="bi bi-arrow-counterclockwise"></i> Resetear
@@ -83,14 +81,16 @@
                             <small class="text-muted">{{ item.usuario.email }}</small>
                         </td>
                         <td class="text-center">{{ item.dias_vacaciones_totales }}</td>
-                        <td class="text-center"><span class="badge bg-warning text-dark">{{ item.dias_disfrutados }}</span></td>
+                        <td class="text-center"><span class="badge bg-warning text-dark">{{ item.dias_disfrutados
+                                }}</span></td>
                         <td class="text-center"><span class="badge bg-success">{{ item.dias_restantes }}</span></td>
                         <td>
-                            {% set porcentaje = (item.dias_disfrutados / item.dias_vacaciones_totales * 100) if item.dias_vacaciones_totales > 0 else 0 %}
+                            {% set porcentaje = (item.dias_disfrutados / item.dias_vacaciones_totales * 100) if
+                            item.dias_vacaciones_totales > 0 else 0 %}
                             <div class="d-flex align-items-center">
                                 <div class="progress flex-grow-1 me-2" style="height: 6px;">
-                                    <div class="progress-bar {% if porcentaje > 80 %}bg-danger{% elif porcentaje > 50 %}bg-warning{% else %}bg-success{% endif %}" 
-                                         style="width: {{ porcentaje }}%"></div>
+                                    <div class="progress-bar {% if porcentaje > 80 %}bg-danger{% elif porcentaje > 50 %}bg-warning{% else %}bg-success{% endif %}"
+                                        style="width: {{ porcentaje }}%"></div>
                                 </div>
                                 <small class="text-muted">{{ "%.0f"|format(porcentaje) }}%</small>
                             </div>
@@ -102,11 +102,13 @@
                 <tfoot class="table-light">
                     <tr>
                         <td class="fw-bold">TOTALES</td>
-                        <td class="text-center fw-bold">{{ resumen_usuarios|sum(attribute='dias_vacaciones_totales') }}</td>
+                        <td class="text-center fw-bold">{{ resumen_usuarios|sum(attribute='dias_vacaciones_totales') }}
+                        </td>
                         <td class="text-center fw-bold">{{ total_dias_disfrutados }}</td>
                         <td class="text-center fw-bold text-success">{{ total_dias_restantes }}</td>
                         <td></td>
-                        <td class="text-end fw-bold">{{ "%.2f"|format(resumen_usuarios|sum(attribute='horas_totales')) }}h</td>
+                        <td class="text-end fw-bold">{{ "%.2f"|format(resumen_usuarios|sum(attribute='horas_totales'))
+                            }}h</td>
                     </tr>
                 </tfoot>
             </table>
@@ -119,4 +121,13 @@
     <i class="bi bi-search"></i> No se encontraron usuarios con los filtros seleccionados.
 </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/user_search.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        setupUserSearch('usuario_search_input', 'usuario_id_hidden', true);
+    });
+</script>
 {% endblock %}
