@@ -2,12 +2,25 @@
 
 {% block title %}Gestión de Festivos{% endblock %}
 
-{% block extra_css %}
-{% endblock %}
-
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-calendar-event"></i> Gestión de Festivos</h1>
+    
+    <!-- ✅ NUEVO: Filtros -->
+    <div class="btn-group">
+        <a href="{{ url_for('admin.admin_festivos', mostrar='activos') }}" 
+           class="btn btn-sm {% if mostrar == 'activos' or not mostrar %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            Activos
+        </a>
+        <a href="{{ url_for('admin.admin_festivos', mostrar='archivados') }}" 
+           class="btn btn-sm {% if mostrar == 'archivados' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+            Archivados
+        </a>
+        <a href="{{ url_for('admin.admin_festivos', mostrar='todos') }}" 
+           class="btn btn-sm {% if mostrar == 'todos' %}btn-dark{% else %}btn-outline-dark{% endif %}">
+            Todos
+        </a>
+    </div>
 </div>
 
 <div class="card mb-4">
@@ -19,11 +32,11 @@
             <div class="row">
                 <div class="col-md-4">
                     <label class="form-label">Fecha</label>
-                    <input type="date" class="form-control" name="fecha" id="inputFecha" placeholder="Selecciona una fecha" required>
+                    <input type="date" class="form-control" name="fecha" id="inputFecha" required>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Descripción</label>
-                    <input type="text" class="form-control" name="descripcion" placeholder="Ej: Navidad, Día del Trabajador..." required>
+                    <input type="text" class="form-control" name="descripcion" placeholder="Ej: Navidad..." required>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100">
@@ -36,8 +49,9 @@
 </div>
 
 <div class="card">
-    <div class="card-header">
-        <h5>Listado de Festivos</h5>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Listado de Festivos</h5>
+        <span class="badge bg-secondary">{{ festivos|length }} registros</span>
     </div>
     <div class="card-body">
         {% if festivos %}
@@ -47,17 +61,43 @@
                     <tr>
                         <th>Fecha</th>
                         <th>Descripción</th>
+                        <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for festivo in festivos %}
-                    <tr>
+                    <tr {% if not festivo.activo %}class="table-secondary"{% endif %}>
                         <td>{{ festivo.fecha.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ festivo.descripcion }}</td>
                         <td>
+                            {{ festivo.descripcion }}
+                            {% if not festivo.activo %}
+                            <span class="badge bg-secondary ms-2">Archivado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if festivo.activo %}
+                            <span class="badge bg-success">Activo</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Archivado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <!-- ✅ NUEVO: Toggle archivar/desarchivar -->
+                            <form method="POST" action="{{ url_for('admin.admin_toggle_festivo', id=festivo.id) }}" style="display:inline;">
+                                {% if festivo.activo %}
+                                <button type="submit" class="btn btn-sm btn-warning" title="Archivar">
+                                    <i class="bi bi-archive"></i>
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-sm btn-success" title="Restaurar">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                                {% endif %}
+                            </form>
+                            
                             <form method="POST" action="{{ url_for('admin.admin_eliminar_festivo', id=festivo.id) }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar este festivo?')">
+                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar permanentemente?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -69,7 +109,7 @@
         </div>
         {% else %}
         <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> No hay festivos registrados.
+            <i class="bi bi-info-circle"></i> No hay festivos con el filtro seleccionado.
         </div>
         {% endif %}
     </div>
@@ -77,14 +117,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
-
 <script>
     flatpickr("#inputFecha", {
-        locale: "es",           // Idioma español
-        altInput: true,         // Input alternativo visual
-        altFormat: "d/m/Y",     // Formato visual (ej: 25/12/2025)
-        dateFormat: "Y-m-d",    // Formato real para la BBDD (ej: 2025-12-25)
-        allowInput: true,       // Permite escribir si se desea
+        locale: "es",
+        altInput: true,
+        altFormat: "d/m/Y",
+        dateFormat: "Y-m-d",
+        allowInput: true,
         monthSelectorType: "static"
     });
 </script>

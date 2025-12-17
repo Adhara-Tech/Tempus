@@ -7,6 +7,7 @@ from calendar import monthrange
 
 from src import db, admin_required
 from src.models import Usuario, Aprobador, Fichaje, SolicitudVacaciones, Festivo, TipoAusencia, SolicitudBaja
+from src.utils import invalidar_cache_festivos
 from . import admin_bp
 
 @admin_bp.route('/admin/usuarios')
@@ -29,6 +30,7 @@ def admin_crear_usuario():
             flash('El email ya está registrado', 'danger')
             return redirect(url_for('admin.admin_crear_usuario'))
         
+        # Crear usuario
         usuario = Usuario(
             nombre=nombre,
             email=email,
@@ -36,8 +38,23 @@ def admin_crear_usuario():
             rol=rol,
             dias_vacaciones=dias_vacaciones
         )
-        
         db.session.add(usuario)
+        db.session.flush()  # ✅ Genera el usuario.id sin hacer commit
+        
+        # ✅ NUEVO: Crear saldo automáticamente para el año actual
+        from datetime import datetime
+        from src.models import SaldoVacaciones
+        
+        anio_actual = datetime.now().year
+        saldo = SaldoVacaciones(
+            usuario_id=usuario.id,
+            anio=anio_actual,
+            dias_totales=dias_vacaciones,
+            dias_disfrutados=0,
+            dias_carryover=0
+        )
+        db.session.add(saldo)
+        
         db.session.commit()
         flash('Usuario creado correctamente', 'success')
         return redirect(url_for('admin.admin_usuarios'))
@@ -111,12 +128,23 @@ def admin_eliminar_aprobador(id):
 @admin_bp.route('/admin/festivos')
 @admin_required
 def admin_festivos():
-    festivos = Festivo.query.order_by(Festivo.fecha).all()
-    return render_template('admin/festivos.html', festivos=festivos)
+    # Obtener filtro de la URL (default: solo activos)
+    mostrar = request.args.get('mostrar', 'activos')
+    
+    if mostrar == 'todos':
+        festivos = Festivo.query.order_by(Festivo.fecha.desc()).all()
+    elif mostrar == 'archivados':
+        festivos = Festivo.query.filter_by(activo=False).order_by(Festivo.fecha.desc()).all()
+    else:  # 'activos' (default)
+        festivos = Festivo.query.filter_by(activo=True).order_by(Festivo.fecha.desc()).all()
+    
+    return render_template('admin/festivos.html', festivos=festivos, mostrar=mostrar)
 
 @admin_bp.route('/admin/festivos/crear', methods=['POST'])
 @admin_required
 def admin_crear_festivo():
+    from src.utils import invalidar_cache_festivos
+    
     fecha = datetime.strptime(request.form.get('fecha'), '%Y-%m-%d').date()
     descripcion = request.form.get('descripcion')
     
@@ -124,10 +152,33 @@ def admin_crear_festivo():
         flash('Este festivo ya existe', 'warning')
         return redirect(url_for('admin.admin_festivos'))
     
-    festivo = Festivo(fecha=fecha, descripcion=descripcion)
+    festivo = Festivo(
+        fecha=fecha, 
+        descripcion=descripcion,
+        activo=True  # ✅ Explícitamente activo
+    )
     db.session.add(festivo)
     db.session.commit()
+    
+    invalidar_cache_festivos()
+    
     flash('Festivo añadido correctamente', 'success')
+    return redirect(url_for('admin.admin_festivos'))
+
+# Endpoint para archivar/desarchivar
+@admin_bp.route('/admin/festivos/toggle/<int:id>', methods=['POST'])
+@admin_required
+def admin_toggle_festivo(id):
+    from src.utils import invalidar_cache_festivos
+    
+    festivo = Festivo.query.get_or_404(id)
+    festivo.activo = not festivo.activo
+    db.session.commit()
+    
+    invalidar_cache_festivos()
+    
+    estado = "activado" if festivo.activo else "archivado"
+    flash(f'Festivo {estado} correctamente', 'success')
     return redirect(url_for('admin.admin_festivos'))
 
 @admin_bp.route('/admin/festivos/eliminar/<int:id>', methods=['POST'])
@@ -136,6 +187,9 @@ def admin_eliminar_festivo(id):
     festivo = Festivo.query.get_or_404(id)
     db.session.delete(festivo)
     db.session.commit()
+    
+    invalidar_cache_festivos()  # ✅ AÑADIR ESTA LÍNEA
+    
     flash('Festivo eliminado correctamente', 'success')
     return redirect(url_for('admin.admin_festivos'))
 

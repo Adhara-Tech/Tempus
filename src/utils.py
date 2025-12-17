@@ -1,7 +1,63 @@
-from datetime import timedelta, date
+from functools import lru_cache
+from datetime import timedelta, date, datetime
 from src.models import Festivo, SolicitudVacaciones, SolicitudBaja, SaldoVacaciones, Fichaje
 from sqlalchemy import or_, and_
 
+
+@lru_cache(maxsize=1)
+@lru_cache(maxsize=1)
+def _get_festivos_cached(cache_key):
+    """
+    Cache interno de festivos ACTIVOS.
+    """
+    from src.models import Festivo
+    return set([
+        f.fecha for f in Festivo.query.filter_by(activo=True).all()
+    ])
+
+def get_festivos():
+    """
+    Obtiene set de fechas festivas con cache de 1 hora.
+    Returns:
+        set: Conjunto de objetos date con los festivos
+    """
+    # Cache key que cambia cada hora (formato: 2025121614 para 16 dic 2025 a las 14h)
+    cache_key = datetime.now().strftime('%Y%m%d%H')
+    return _get_festivos_cached(cache_key)
+
+def invalidar_cache_festivos():
+    """
+    Limpia el cache de festivos manualmente.
+    Llamar cuando se añada/elimine/modifique un festivo.
+    """
+    _get_festivos_cached.cache_clear()
+
+def es_festivo(fecha):
+    """Comprueba si una fecha es fin de semana o festivo nacional."""
+    # 1. Fin de semana (5=Sábado, 6=Domingo)
+    if fecha.weekday() >= 5:
+        return True
+    
+    # 2. Festivo en Base de Datos (CON CACHE)
+    festivos = get_festivos()  # ✅ Cached
+    return fecha in festivos
+
+def calcular_dias_habiles(fecha_inicio, fecha_fin):
+    """Devuelve el número de días laborables entre dos fechas (inclusive)."""
+    dias_totales = (fecha_fin - fecha_inicio).days + 1
+    dias_habiles = 0
+    
+    # ✅ Obtener festivos UNA SOLA VEZ (cached)
+    festivos = get_festivos()
+    
+    fecha_actual = fecha_inicio
+    for _ in range(dias_totales):
+        # Optimización: check en set es O(1)
+        if fecha_actual.weekday() < 5 and fecha_actual not in festivos:
+            dias_habiles += 1
+        fecha_actual += timedelta(days=1)
+        
+    return dias_habiles
 
 def calcular_dias_laborables(fecha_inicio, fecha_fin):
     """
@@ -17,7 +73,7 @@ def calcular_dias_laborables(fecha_inicio, fecha_fin):
     """
     dias = 0
     fecha_actual = fecha_inicio
-    festivos = set([f.fecha for f in Festivo.query.all()])
+    festivos = get_festivos()  # ✅ Cached
     
     while fecha_actual <= fecha_fin:
         # No contar fines de semana (5=sábado, 6=domingo)
@@ -26,35 +82,6 @@ def calcular_dias_laborables(fecha_inicio, fecha_fin):
         fecha_actual += timedelta(days=1)
     
     return dias
-
-def es_festivo(fecha):
-    """Comprueba si una fecha es fin de semana o festivo nacional."""
-    # 1. Fin de semana (5=Sábado, 6=Domingo)
-    if fecha.weekday() >= 5:
-        return True
-    
-    # 2. Festivo en Base de Datos
-    # Nota: Esto hace una query por día, para optimizar se podría cachear
-    # o traer todos los festivos del rango en una sola query.
-    # Para este volumen de datos, esto está bien.
-    festivo = Festivo.query.filter_by(fecha=fecha).first()
-    if festivo:
-        return True
-        
-    return False
-
-def calcular_dias_habiles(fecha_inicio, fecha_fin):
-    """Devuelve el número de días laborables entre dos fechas (inclusive)."""
-    dias_totales = (fecha_fin - fecha_inicio).days + 1
-    dias_habiles = 0
-    
-    fecha_actual = fecha_inicio
-    for _ in range(dias_totales):
-        if not es_festivo(fecha_actual):
-            dias_habiles += 1
-        fecha_actual += timedelta(days=1)
-        
-    return dias_habiles
 
 def verificar_solapamiento(usuario_id, fecha_inicio, fecha_fin, excluir_solicitud_id=None, tipo='vacaciones'):
     """

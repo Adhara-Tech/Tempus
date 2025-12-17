@@ -116,6 +116,8 @@ class Fichaje(db.Model):
         
         # 2. Índice secundario: Para agrupaciones por UUID (historial de versiones)
         db.Index('idx_fichaje_grupo', 'grupo_id'),
+
+        db.Index('idx_fichaje_fecha', 'fecha'),
     )
     
     id = db.Column(db.Integer, primary_key=True)
@@ -281,6 +283,7 @@ class Festivo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.Date, nullable=False, unique=True)
     descripcion = db.Column(db.String(200), nullable=False)
+    activo = db.Column(db.Boolean, default=True, nullable=False)  # ✅ AÑADIR
     
     def __repr__(self):
         return f'<Festivo {self.fecha} - {self.descripcion}>'
