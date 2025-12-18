@@ -317,7 +317,7 @@ def admin_resumen():
     if not usuarios_a_mostrar:
         return render_template('admin/resumen.html', 
                              resumen_usuarios=[],
-                             usuarios=all_usuarios,
+
                              usuario_seleccionado=usuario_id,
                              anio_actual=anio,
                              total_dias_disfrutados=0,

@@ -424,3 +424,20 @@ class Attachment(db.Model):
             return True
 
         return False
+
+class UserKnownIP(db.Model):
+    __tablename__ = 'user_known_ips'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    ip_address = db.Column(db.String(45), nullable=False) # Supports IPv4 and IPv6
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Index for fast lookups during login
+    __table_args__ = (
+        db.Index('idx_user_ip', 'usuario_id', 'ip_address'),
+    )
+
+    def __repr__(self):
+        return f'<UserKnownIP {self.ip_address} - User {self.usuario_id}>'

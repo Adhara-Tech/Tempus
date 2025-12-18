@@ -26,10 +26,9 @@ def init_mail(app):
     mail.init_app(app)
     
     # ✅ Registrar shutdown del executor al cerrar la app
-    @app.teardown_appcontext
-    def shutdown_email_executor(exception=None):
-        """Cierra el executor al finalizar la app"""
-        email_executor.shutdown(wait=False)
+    
+    # ✅ También registrar con atexit como backup
+    atexit.register(lambda: email_executor.shutdown(wait=False))
     
     # ✅ También registrar con atexit como backup
     atexit.register(lambda: email_executor.shutdown(wait=False))
@@ -132,5 +131,41 @@ Sistema de Gestión de Fichajes
             fut.result()
         except Exception as e:
             print(f"⚠️ Email callback error: {e}")
+    
+    future.add_done_callback(handle_email_result)
+
+def enviar_email_otp(usuario, codigo):
+    """
+    Envía email con el código OTP para verificación de MFA.
+    """
+    msg = Message(
+        subject='Código de verificación de seguridad',
+        sender=current_app.config['MAIL_DEFAULT_SENDER'],
+        recipients=[usuario.email]
+    )
+    
+    msg.body = f'''
+Hola {usuario.nombre},
+
+Se ha detectado un inicio de sesión desde una ubicación o dispositivo nuevo.
+Por favor, utiliza el siguiente código para verificar tu identidad:
+
+{codigo}
+
+Este código expira en 10 minutos.
+Si no has sido tú, por favor contacta con el administrador.
+
+Saludos,
+Sistema de Gestión de Fichajes
+    '''
+    
+    app = current_app._get_current_object()
+    future = email_executor.submit(_send_async, app, msg)
+    
+    def handle_email_result(fut):
+        try:
+            fut.result()
+        except Exception as e:
+            print(f"⚠️ Email OTP callback error: {e}")
     
     future.add_done_callback(handle_email_result)

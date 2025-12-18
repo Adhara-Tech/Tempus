@@ -1,6 +1,6 @@
 import pytest
 from src import app, db, limiter
-from src.models import Usuario, TipoAusencia, Aprobador
+from src.models import Usuario, TipoAusencia, Aprobador, UserKnownIP
 from werkzeug.security import generate_password_hash
 
 @pytest.fixture
@@ -43,6 +43,12 @@ def admin_user(test_app):
     )
     db.session.add(user)
     db.session.commit()
+    
+    # Whitelist IP for tests
+    known_ip = UserKnownIP(usuario_id=user.id, ip_address='127.0.0.1')
+    db.session.add(known_ip)
+    db.session.commit()
+    
     return user
 
 @pytest.fixture
@@ -56,6 +62,12 @@ def employee_user(test_app):
     )
     db.session.add(user)
     db.session.commit()
+    
+    # Whitelist IP for tests
+    known_ip = UserKnownIP(usuario_id=user.id, ip_address='127.0.0.1')
+    db.session.add(known_ip)
+    db.session.commit()
+
     return user
 
 @pytest.fixture
@@ -68,6 +80,11 @@ def approver_user(test_app, employee_user):
         rol='aprobador'
     )
     db.session.add(user)
+    db.session.commit()
+
+    # Whitelist IP for tests
+    known_ip = UserKnownIP(usuario_id=user.id, ip_address='127.0.0.1')
+    db.session.add(known_ip)
     db.session.commit()
     
     # 2. Asignar employee_user a cargo de este aprobador

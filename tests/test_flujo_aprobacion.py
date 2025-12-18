@@ -1,7 +1,7 @@
 
 import pytest
 from src import db
-from src.models import Usuario, Aprobador, SolicitudVacaciones, SaldoVacaciones
+from src.models import Usuario, Aprobador, SolicitudVacaciones, SaldoVacaciones, UserKnownIP
 from datetime import date, timedelta
 from werkzeug.security import generate_password_hash
 
@@ -32,7 +32,13 @@ def workflow_setup(test_app):
         dias_vacaciones=25
     )
     db.session.add(employee)
+    db.session.add(employee)
     db.session.commit() # Commit to get IDs
+
+    # Whitelist IP
+    db.session.add(UserKnownIP(usuario_id=admin.id, ip_address='127.0.0.1'))
+    db.session.add(UserKnownIP(usuario_id=employee.id, ip_address='127.0.0.1'))
+    db.session.commit()
 
     # 3. Establish Approval Relationship (Admin approves Employee)
     relacion = Aprobador(usuario_id=employee.id, aprobador_id=admin.id)
