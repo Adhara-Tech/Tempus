@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash, session
+from flask import render_template, request, redirect, url_for, flash, session, current_app
 from datetime import datetime, timedelta
 import random
 from flask_login import login_user, logout_user, login_required, current_user
@@ -26,10 +26,12 @@ def verify_ip_and_login(user):
         ip_address=ip
     ).first()
     
-    if known_ip:
-        # IP conocida: actualizar last_seen y loguear
-        known_ip.last_seen = datetime.utcnow()
-        db.session.commit()
+    if known_ip or not current_app.config.get('MFA_ENABLED', True):
+        # IP conocida o MFA desactivado: actualizar last_seen si aplica y loguear
+        if known_ip:
+            known_ip.last_seen = datetime.utcnow()
+            db.session.commit()
+        
         login_user(user)
         flash("Inicio de sesión exitoso", "success")
         return redirect(url_for("main.index"))

@@ -37,6 +37,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-fallback')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('SQLALCHEMY_DATABASE_URI', 'sqlite:///fichaje.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = os.environ.get('SQLALCHEMY_TRACK_MODIFICATIONS', 'False').lower() == 'true'
 app.config['GOOGLE_CALENDAR_ID'] = os.environ.get('GOOGLE_CALENDAR_ID', 'primary')
+app.config['MFA_ENABLED'] = os.environ.get('MFA_ENABLED', 'True').lower() == 'true'
 
 # Configuración de Flask-Dance (Google)
 app.config["GOOGLE_OAUTH_CLIENT_ID"] = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
