@@ -102,6 +102,27 @@ def aprobador_required(f):
 def formato_hora_filter(value):
     return decimal_to_human(value)
 
+
+@app.before_request
+def init_db():
+    if not hasattr(app, 'db_initialized'):
+        db.create_all()
+        # 1. Crear Tipo de Ausencia por defecto "Otros" si no existe
+        if not TipoAusencia.query.filter_by(nombre='Otros').first():
+            otros = TipoAusencia(
+                nombre='Otros',
+                descripcion='Otras causas justificadas',
+                max_dias=365,
+                tipo_dias='naturales',
+                requiere_justificante=True,
+                descuenta_vacaciones=False
+            )
+            db.session.add(otros)
+            db.session.commit()
+            print("✅ Tipo de ausencia 'Otros' creado automáticamente.")
+        
+        app.db_initialized = True
+
 # REGISTRO DE BLUEPRINTS
 from src.routes import auth_bp, main_bp, fichajes_bp, ausencias_bp, admin_bp
 
@@ -110,24 +131,6 @@ app.register_blueprint(main_bp)
 app.register_blueprint(fichajes_bp)
 app.register_blueprint(ausencias_bp)
 app.register_blueprint(admin_bp)
-
-# INICIALIZACIÓN DE BBDD AL ARRANQUE
-with app.app_context():
-    db.create_all()
-    # 1. Crear Tipo de Ausencia por defecto "Otros" si no existe
-    if not TipoAusencia.query.filter_by(nombre='Otros').first():
-        otros = TipoAusencia(
-            nombre='Otros',
-            descripcion='Otras causas justificadas',
-            max_dias=365,
-            tipo_dias='naturales',
-            requiere_justificante=True,
-            descuenta_vacaciones=False
-        )
-        db.session.add(otros)
-        db.session.commit()
-        print("✅ Tipo de ausencia 'Otros' creado automáticamente.")
-
 
 from src.cli import cerrar_anio_command, import_users_command, init_admin_command
 app.cli.add_command(cerrar_anio_command)

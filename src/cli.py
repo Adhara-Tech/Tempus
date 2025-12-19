@@ -27,6 +27,8 @@ def cerrar_anio_command(anio_origen, max_carryover, gestionar_festivos, anios_an
     from datetime import date
     from src.utils import invalidar_cache_festivos
     
+    db.create_all()  # Ensure tables exist
+    
     anio_nuevo = anio_origen + 1
     
     print("=" * 70)
@@ -241,6 +243,7 @@ def import_users_command(csv_file):
     from datetime import datetime
     from src.models import SaldoVacaciones  # ✅ Añadir import
 
+    db.create_all()  # Ensure tables exist
     print(f"--- Importando usuarios desde {csv_file} ---")
     
     count_new = 0
@@ -308,6 +311,8 @@ def init_admin_command():
     """
     from werkzeug.security import generate_password_hash
     from flask import current_app
+    
+    db.create_all()  # Ensure tables exist
     
     email = current_app.config.get('DEFAULT_ADMIN_EMAIL')
     password = current_app.config.get('DEFAULT_ADMIN_INITIAL_PASSWORD')
