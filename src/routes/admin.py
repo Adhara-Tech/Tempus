@@ -120,6 +120,14 @@ def admin_editar_usuario(id):
         password = request.form.get('password')
         if password:
             usuario.password = generate_password_hash(password)
+
+        password = request.form.get('password')
+        password_changed = False
+        
+        if password:
+            usuario.password = generate_password_hash(password)
+            password_changed = True
+
         
         db.session.commit()
 
