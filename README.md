@@ -1,7 +1,8 @@
 # Sistema de Fichaje y Gestión de Ausencias
 
 Aplicación completa desarrollada con Flask para gestionar fichajes de empleados, solicitudes de vacaciones y solicitudes de bajas médicas.
-Versión actual: v0.0.1
+
+Versión actual: v0.1.0
 
 ## Características
 
