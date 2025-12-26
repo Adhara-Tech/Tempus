@@ -5,7 +5,6 @@ from sqlalchemy import or_, and_
 
 
 @lru_cache(maxsize=1)
-@lru_cache(maxsize=1)
 def _get_festivos_cached(cache_key):
     """
     Cache interno de festivos ACTIVOS.

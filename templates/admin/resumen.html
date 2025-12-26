@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Resumen Global{% endblock %}
+{% block title %}Resumen Vacaciones{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-file-earmark-bar-graph"></i> Resumen Global Anual</h1>
+    <h1><i class="bi bi-file-earmark-bar-graph"></i> Resumen Vacaciones Anual</h1>
 
     <div>
         <button onclick="exportTableToCSV('resumen_global.csv', false)" class="btn btn-success me-2">
@@ -25,7 +25,6 @@
                         autocomplete="off"
                         value="{{ usuario_seleccionado.nombre + ' (' + usuario_seleccionado.email + ')' if usuario_seleccionado else '' }}">
                 </div>
-                <small class="text-muted">Escribe para buscar...</small>
             </div>
 
             <div class="col-md-3">
@@ -70,7 +69,6 @@
                         <th class="text-center">Disfrutados</th>
                         <th class="text-center">Restantes</th>
                         <th style="width: 20%;">Estado Vacaciones</th>
-                        <th class="text-end">Horas (Año {{ anio_actual }})</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -95,26 +93,59 @@
                                 <small class="text-muted">{{ "%.0f"|format(porcentaje) }}%</small>
                             </div>
                         </td>
-                        <td class="text-end fw-bold">{{ item.horas_totales | formato_hora }}h</td>
                     </tr>
                     {% endfor %}
                 </tbody>
                 <tfoot class="table-light">
                     <tr>
                         <td class="fw-bold">TOTALES</td>
-                        <td class="text-center fw-bold">{{ resumen_usuarios|sum(attribute='dias_vacaciones_totales') }}
+                        <td class="text-center fw-bold">{{ total_dias_asignados }}
                         </td>
                         <td class="text-center fw-bold">{{ total_dias_disfrutados }}</td>
                         <td class="text-center fw-bold text-success">{{ total_dias_restantes }}</td>
                         <td></td>
-                        <td class="text-end fw-bold">{{ "%.2f"|format(resumen_usuarios|sum(attribute='horas_totales'))
-                            }}h</td>
                     </tr>
                 </tfoot>
             </table>
         </div>
     </div>
 </div>
+
+{% if pagination and pagination.pages > 1 %}
+<nav aria-label="Navegación de usuarios" class="mt-4 mb-4">
+    <ul class="pagination justify-content-center">
+        <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+            <a class="page-link"
+                href="{{ url_for('admin.admin_resumen', page=pagination.prev_num, anio=anio_actual, usuario_id=usuario_seleccionado.id if usuario_seleccionado else None) }}">
+                <i class="bi bi-chevron-left"></i> Anterior
+            </a>
+        </li>
+
+        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+        {% if page_num %}
+        <li class="page-item {{ 'active' if page_num == pagination.page }}">
+            <a class="page-link"
+                href="{{ url_for('admin.admin_resumen', page=page_num, anio=anio_actual, usuario_id=usuario_seleccionado.id if usuario_seleccionado else None) }}">
+                {{ page_num }}
+            </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+        {% endfor %}
+
+        <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+            <a class="page-link"
+                href="{{ url_for('admin.admin_resumen', page=pagination.next_num, anio=anio_actual, usuario_id=usuario_seleccionado.id if usuario_seleccionado else None) }}">
+                Siguiente <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    </ul>
+    <div class="text-center text-muted small mt-2">
+        Mostrando {{ pagination.first }} - {{ pagination.last }} de {{ pagination.total }} empleados
+    </div>
+</nav>
+{% endif %}
 
 {% else %}
 <div class="alert alert-warning text-center mt-4">
