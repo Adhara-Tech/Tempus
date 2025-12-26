@@ -458,6 +458,182 @@ def admin_resumen():
                          total_dias_disfrutados=total_dias_disfrutados,
                          total_dias_restantes=total_dias_restantes)
 
+# --- CSV EXPORT ENDPOINTS ---
+@admin_bp.route('/admin/resumen/export')
+@admin_required
+def admin_resumen_export():
+    """Export all users vacation summary to CSV."""
+    import io
+    import csv
+    from flask import Response
+    
+    anio = request.args.get('anio', type=int, default=datetime.now().year)
+    usuario_id = request.args.get('usuario_id', type=int)
+    
+    fecha_inicio_anio = date(anio, 1, 1)
+    fecha_fin_anio = date(anio, 12, 31)
+    
+    # Query all users (or filtered)
+    query = Usuario.query
+    if usuario_id:
+        query = query.filter(Usuario.id == usuario_id)
+    usuarios = query.all()
+    
+    # Get vacation stats
+    vacaciones_stats = db.session.query(
+        SolicitudVacaciones.usuario_id,
+        func.sum(SolicitudVacaciones.dias_solicitados).label('dias_disfrutados')
+    ).filter(
+        SolicitudVacaciones.estado == 'aprobada',
+        SolicitudVacaciones.es_actual == True,
+        SolicitudVacaciones.tipo_accion != 'cancelacion',
+        SolicitudVacaciones.fecha_inicio >= fecha_inicio_anio,
+        SolicitudVacaciones.fecha_inicio <= fecha_fin_anio
+    ).group_by(SolicitudVacaciones.usuario_id).all()
+    
+    vacaciones_dict = {s.usuario_id: int(s.dias_disfrutados or 0) for s in vacaciones_stats}
+    
+    # Generate CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Usuario', 'Email', 'Rol', 'Días Totales', 'Disfrutados', 'Restantes'])
+    
+    for u in usuarios:
+        disfrutados = vacaciones_dict.get(u.id, 0)
+        writer.writerow([u.nombre, u.email, u.rol, u.dias_vacaciones, disfrutados, u.dias_vacaciones - disfrutados])
+    
+    # Return with BOM for Excel UTF-8 compatibility
+    csv_content = '\ufeff' + output.getvalue()
+    return Response(
+        csv_content,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment;filename=resumen_vacaciones_{anio}.csv'}
+    )
+
+@admin_bp.route('/admin/fichajes/export')
+@admin_required
+def admin_fichajes_export():
+    """Export fichajes to CSV with current filters."""
+    import io
+    import csv
+    from flask import Response
+    from calendar import monthrange
+    
+    usuario_id = request.args.get('usuario_id', type=int)
+    hoy = date.today()
+    mes = request.args.get('mes', hoy.month, type=int)
+    anio = request.args.get('anio', hoy.year, type=int)
+    
+    _, ultimo_dia = monthrange(anio, mes)
+    fecha_inicio = date(anio, mes, 1)
+    fecha_fin = date(anio, mes, ultimo_dia)
+    
+    query = Fichaje.query.filter(
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion',
+        Fichaje.fecha >= fecha_inicio,
+        Fichaje.fecha <= fecha_fin
+    )
+    
+    if usuario_id:
+        query = query.filter(Fichaje.usuario_id == usuario_id)
+    
+    fichajes = query.order_by(Fichaje.fecha.desc(), Fichaje.hora_entrada.asc()).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Fecha', 'Usuario', 'Email', 'Entrada', 'Salida', 'Pausa (min)', 'Horas'])
+    
+    for f in fichajes:
+        horas = ((f.hora_salida.hour * 60 + f.hora_salida.minute) - 
+                 (f.hora_entrada.hour * 60 + f.hora_entrada.minute)) / 60 - (f.pausa / 60)
+        writer.writerow([
+            f.fecha.strftime('%d/%m/%Y'),
+            f.usuario.nombre,
+            f.usuario.email,
+            f.hora_entrada.strftime('%H:%M'),
+            f.hora_salida.strftime('%H:%M'),
+            f.pausa,
+            f'{horas:.2f}'
+        ])
+    
+    csv_content = '\ufeff' + output.getvalue()
+    return Response(
+        csv_content,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment;filename=fichajes_{mes:02d}_{anio}.csv'}
+    )
+
+@admin_bp.route('/admin/ausencias/export')
+@admin_required
+def admin_ausencias_export():
+    """Export ausencias to CSV with current filters."""
+    import io
+    import csv
+    from flask import Response
+    
+    usuario_id = request.args.get('usuario_id', type=int)
+    tipo_filtro = request.args.get('tipo', 'todos')
+    fecha_inicio_str = request.args.get('fecha_inicio')
+    fecha_fin_str = request.args.get('fecha_fin')
+    
+    query_vac = SolicitudVacaciones.query.filter_by(es_actual=True)
+    query_bajas = SolicitudBaja.query.filter_by(es_actual=True)
+    
+    if usuario_id:
+        query_vac = query_vac.filter_by(usuario_id=usuario_id)
+        query_bajas = query_bajas.filter_by(usuario_id=usuario_id)
+    
+    if fecha_inicio_str:
+        f_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        query_vac = query_vac.filter(SolicitudVacaciones.fecha_fin >= f_inicio)
+        query_bajas = query_bajas.filter(SolicitudBaja.fecha_fin >= f_inicio)
+    
+    if fecha_fin_str:
+        f_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        query_vac = query_vac.filter(SolicitudVacaciones.fecha_inicio <= f_fin)
+        query_bajas = query_bajas.filter(SolicitudBaja.fecha_inicio <= f_fin)
+    
+    resultados = []
+    
+    if tipo_filtro in ['todos', 'vacaciones']:
+        for v in query_vac.all():
+            resultados.append({
+                'empleado': v.usuario.nombre,
+                'email': v.usuario.email,
+                'tipo': 'Vacaciones',
+                'fecha_inicio': v.fecha_inicio.strftime('%d/%m/%Y'),
+                'fecha_fin': v.fecha_fin.strftime('%d/%m/%Y'),
+                'dias': v.dias_solicitados,
+                'estado': v.estado
+            })
+    
+    if tipo_filtro in ['todos', 'bajas']:
+        for b in query_bajas.all():
+            resultados.append({
+                'empleado': b.usuario.nombre,
+                'email': b.usuario.email,
+                'tipo': b.tipo_ausencia.nombre if b.tipo_ausencia else 'Baja',
+                'fecha_inicio': b.fecha_inicio.strftime('%d/%m/%Y'),
+                'fecha_fin': b.fecha_fin.strftime('%d/%m/%Y'),
+                'dias': b.dias_solicitados,
+                'estado': b.estado
+            })
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Empleado', 'Email', 'Tipo', 'Fecha Inicio', 'Fecha Fin', 'Días', 'Estado'])
+    
+    for r in resultados:
+        writer.writerow([r['empleado'], r['email'], r['tipo'], r['fecha_inicio'], r['fecha_fin'], r['dias'], r['estado']])
+    
+    csv_content = '\ufeff' + output.getvalue()
+    return Response(
+        csv_content,
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment;filename=listado_ausencias.csv'}
+    )
+
 # --- AUDITORÍA UNIFICADA (Fichajes + Ausencias + Impersonation) ---
 @admin_bp.route('/admin/auditoria')
 @admin_required

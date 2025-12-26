@@ -7,9 +7,10 @@
     <h1><i class="bi bi-file-earmark-bar-graph"></i> Resumen Vacaciones Anual</h1>
 
     <div>
-        <button onclick="exportTableToCSV('resumen_global.csv', false)" class="btn btn-success me-2">
+        <a href="{{ url_for('admin.admin_resumen_export', anio=anio_actual, usuario_id=usuario_seleccionado.id if usuario_seleccionado else None) }}"
+            class="btn btn-success me-2">
             <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
-        </button>
+        </a>
     </div>
 </div>
 
