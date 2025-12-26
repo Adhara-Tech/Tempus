@@ -10,14 +10,15 @@
 
 <div class="card">
     <div class="card-body">
-        
+
         <div id="alertaFecha" class="alert alert-warning" style="display: none;">
             <i class="bi bi-exclamation-triangle-fill"></i> <span id="textoAlerta"></span>
         </div>
 
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="{{ next_url or '' }}">
-            
+
             <div class="mb-3">
                 <label class="form-label">Fecha</label>
                 <input type="date" class="form-control" name="fecha" id="inputFecha" required
@@ -33,7 +34,7 @@
                             value="{{ request.form.get('hora_entrada', fichaje.hora_entrada.strftime('%H:%M')) }}">
                     </div>
                 </div>
-                
+
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Hora de Salida</label>
@@ -41,7 +42,7 @@
                             value="{{ request.form.get('hora_salida', fichaje.hora_salida.strftime('%H:%M')) }}">
                     </div>
                 </div>
-                
+
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Pausa (minutos)</label>
@@ -54,8 +55,8 @@
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label fw-bold text-primary">Total Estimado</label>
-                        <input type="text" class="form-control fw-bold bg-light" id="inputTotal" readonly 
-                               value="0.00 h" style="border-color: #cfe2ff;">
+                        <input type="text" class="form-control fw-bold bg-light" id="inputTotal" readonly value="0.00 h"
+                            style="border-color: #cfe2ff;">
                     </div>
                 </div>
             </div>
@@ -64,7 +65,8 @@
                 <label class="form-label">Motivo del cambio <span class="text-danger">*</span></label>
                 <textarea class="form-control" name="motivo" rows="2"
                     required>{{ request.form.get('motivo', '') }}</textarea>
-                <div class="form-text">Esto generará una nueva versión del fichaje (la anterior quedará como histórico).</div>
+                <div class="form-text">Esto generará una nueva versión del fichaje (la anterior quedará como histórico).
+                </div>
             </div>
 
             <div class="d-flex gap-2">
@@ -133,11 +135,11 @@
         const fecha = document.getElementById('inputFecha').value;
         const horaEntrada = entradaInput.value;
         const horaSalida = salidaInput.value;
-        
+
         const alertaBox = document.getElementById('alertaFecha');
         const alertaTexto = document.getElementById('textoAlerta');
         const btnGuardar = document.querySelector('button[type="submit"]');
-        
+
         if (!fecha) {
             alertaBox.style.display = 'none';
             return;
@@ -147,37 +149,37 @@
             const response = await fetch("{{ url_for('fichajes.verificar_fecha_ajax') }}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     fecha: fecha,
                     hora_entrada: horaEntrada,
                     hora_salida: horaSalida,
                     // Enviamos el ID para futuras mejoras del backend (exclusión)
                     excluir_id: {{ fichaje.id }} 
                 })
-            });
+    });
 
-            const data = await response.json();
+    const data = await response.json();
 
-            alertaBox.classList.remove('alert-warning', 'alert-danger');
-            btnGuardar.disabled = false;
+    alertaBox.classList.remove('alert-warning', 'alert-danger');
+    btnGuardar.disabled = false;
 
-            if (data.status === 'error') {
-                alertaBox.classList.add('alert-danger');
-                alertaTexto.innerHTML = `<i class="bi bi-x-octagon-fill"></i> ${data.message}`;
-                alertaBox.style.display = 'block';
-                btnGuardar.disabled = true;
-            } else if (data.status === 'warning') {
-                alertaBox.classList.add('alert-warning');
-                alertaTexto.innerHTML = data.messages.join('<br>');
-                alertaBox.style.display = 'block';
-            } else {
-                alertaBox.style.display = 'none';
-                alertaTexto.textContent = '';
-            }
+    if (data.status === 'error') {
+        alertaBox.classList.add('alert-danger');
+        alertaTexto.innerHTML = `<i class="bi bi-x-octagon-fill"></i> ${data.message}`;
+        alertaBox.style.display = 'block';
+        btnGuardar.disabled = true;
+    } else if (data.status === 'warning') {
+        alertaBox.classList.add('alert-warning');
+        alertaTexto.innerHTML = data.messages.join('<br>');
+        alertaBox.style.display = 'block';
+    } else {
+        alertaBox.style.display = 'none';
+        alertaTexto.textContent = '';
+    }
 
         } catch (error) {
-            console.error('Error verificando:', error);
-        }
+        console.error('Error verificando:', error);
+    }
     }
 
     // Listeners
@@ -186,7 +188,7 @@
         el.addEventListener('change', calcularTotal);
         el.addEventListener('blur', verificarDatos);
     });
-    
+
     document.getElementById('inputFecha').addEventListener('change', verificarDatos);
 
     // Inicialización al cargar la página

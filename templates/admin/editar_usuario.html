@@ -8,35 +8,37 @@
 <div class="card">
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
                 <label class="form-label">Nombre Completo</label>
                 <input type="text" class="form-control" name="nombre" value="{{ usuario.nombre }}" required>
             </div>
-            
+
             <div class="mb-3">
                 <label class="form-label">Email</label>
                 <input type="email" class="form-control" name="email" value="{{ usuario.email }}" required>
             </div>
-            
+
             <div class="mb-3">
                 <label class="form-label">Nueva Contraseña (dejar en blanco para no cambiar)</label>
                 <input type="password" class="form-control" name="password">
             </div>
-            
+
             <div class="mb-3">
                 <label class="form-label">Rol</label>
                 <select class="form-select" name="rol" required>
-                    <option value="usuario" {% if usuario.rol == 'usuario' %}selected{% endif %}>Usuario</option>
-                    <option value="aprobador" {% if usuario.rol == 'aprobador' %}selected{% endif %}>Aprobador</option>
-                    <option value="admin" {% if usuario.rol == 'admin' %}selected{% endif %}>Administrador</option>
+                    <option value="usuario" {% if usuario.rol=='usuario' %}selected{% endif %}>Usuario</option>
+                    <option value="aprobador" {% if usuario.rol=='aprobador' %}selected{% endif %}>Aprobador</option>
+                    <option value="admin" {% if usuario.rol=='admin' %}selected{% endif %}>Administrador</option>
                 </select>
             </div>
-            
+
             <div class="mb-3">
                 <label class="form-label">Días de Vacaciones Anuales</label>
-                <input type="number" class="form-control" name="dias_vacaciones" value="{{ usuario.dias_vacaciones }}" min="0" required>
+                <input type="number" class="form-control" name="dias_vacaciones" value="{{ usuario.dias_vacaciones }}"
+                    min="0" required>
             </div>
-            
+
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-save"></i> Actualizar

@@ -5,19 +5,19 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-calendar-event"></i> Gestión de Festivos</h1>
-    
+
     <!-- ✅ NUEVO: Filtros -->
     <div class="btn-group">
-        <a href="{{ url_for('admin.admin_festivos', mostrar='activos') }}" 
-           class="btn btn-sm {% if mostrar == 'activos' or not mostrar %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        <a href="{{ url_for('admin.admin_festivos', mostrar='activos') }}"
+            class="btn btn-sm {% if mostrar == 'activos' or not mostrar %}btn-primary{% else %}btn-outline-primary{% endif %}">
             Activos
         </a>
-        <a href="{{ url_for('admin.admin_festivos', mostrar='archivados') }}" 
-           class="btn btn-sm {% if mostrar == 'archivados' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+        <a href="{{ url_for('admin.admin_festivos', mostrar='archivados') }}"
+            class="btn btn-sm {% if mostrar == 'archivados' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
             Archivados
         </a>
-        <a href="{{ url_for('admin.admin_festivos', mostrar='todos') }}" 
-           class="btn btn-sm {% if mostrar == 'todos' %}btn-dark{% else %}btn-outline-dark{% endif %}">
+        <a href="{{ url_for('admin.admin_festivos', mostrar='todos') }}"
+            class="btn btn-sm {% if mostrar == 'todos' %}btn-dark{% else %}btn-outline-dark{% endif %}">
             Todos
         </a>
     </div>
@@ -29,6 +29,7 @@
     </div>
     <div class="card-body">
         <form method="POST" action="{{ url_for('admin.admin_crear_festivo') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="row">
                 <div class="col-md-4">
                     <label class="form-label">Fecha</label>
@@ -67,7 +68,7 @@
                 </thead>
                 <tbody>
                     {% for festivo in festivos %}
-                    <tr {% if not festivo.activo %}class="table-secondary"{% endif %}>
+                    <tr {% if not festivo.activo %}class="table-secondary" {% endif %}>
                         <td>{{ festivo.fecha.strftime('%d/%m/%Y') }}</td>
                         <td>
                             {{ festivo.descripcion }}
@@ -84,7 +85,9 @@
                         </td>
                         <td>
                             <!-- ✅ NUEVO: Toggle archivar/desarchivar -->
-                            <form method="POST" action="{{ url_for('admin.admin_toggle_festivo', id=festivo.id) }}" style="display:inline;">
+                            <form method="POST" action="{{ url_for('admin.admin_toggle_festivo', id=festivo.id) }}"
+                                style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if festivo.activo %}
                                 <button type="submit" class="btn btn-sm btn-warning" title="Archivar">
                                     <i class="bi bi-archive"></i>
@@ -95,9 +98,12 @@
                                 </button>
                                 {% endif %}
                             </form>
-                            
-                            <form method="POST" action="{{ url_for('admin.admin_eliminar_festivo', id=festivo.id) }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar permanentemente?')">
+
+                            <form method="POST" action="{{ url_for('admin.admin_eliminar_festivo', id=festivo.id) }}"
+                                style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('¿Eliminar permanentemente?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>

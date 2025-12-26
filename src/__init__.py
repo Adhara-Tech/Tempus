@@ -15,6 +15,9 @@ import sys
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+# Protección CSRF
+from flask_wtf.csrf import CSRFProtect
+
 # Importamos las extensiones y modelos
 from .models import db, Usuario, Festivo, TipoAusencia
 from .email_service import init_mail
@@ -130,6 +133,9 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'
 login_manager.login_message_category = 'info'
+
+# INICIALIZAR CSRF
+csrf = CSRFProtect(app)
 
 # INICIALIZAR SERVICIO DE EMAIL
 init_mail(app)

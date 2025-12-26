@@ -108,6 +108,7 @@
                             <form method="POST"
                                 action="{{ url_for('fichajes.eliminar', id=f.id) }}?next={{ request.full_path | urlencode }}"
                                 style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-danger"
                                     onclick="return confirm('¿Eliminar este fichaje de {{ f.usuario.nombre }}?')">
                                     <i class="bi bi-trash"></i>

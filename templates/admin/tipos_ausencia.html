@@ -13,6 +13,7 @@
     </div>
     <div class="card-body">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Nombre (Ej: Paternidad)</label>
@@ -80,6 +81,7 @@
                         <td>
                             <form method="POST" action="{{ url_for('admin.admin_toggle_tipo_ausencia', id=tipo.id) }}"
                                 class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if tipo.activo %}
                                 <button class="btn btn-sm btn-outline-danger" title="Desactivar">
                                     <i class="bi bi-toggle-on"></i> Desactivar

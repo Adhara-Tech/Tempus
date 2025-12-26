@@ -3,6 +3,7 @@ flask-sqlalchemy
 flask-login
 flask-mail
 flask-limiter
+flask-wtf
 rich
 gunicorn
 google-api-python-client

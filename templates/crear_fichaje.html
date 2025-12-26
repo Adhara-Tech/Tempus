@@ -10,72 +10,74 @@
 
 <div class="card">
     <div class="card-body">
-        
+
         <div id="alertaFecha" class="alert alert-warning" style="display: none;">
             <i class="bi bi-exclamation-triangle-fill"></i> <span id="textoAlerta"></span>
         </div>
 
         <form method="POST" id="formFichaje">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
                 <label class="form-label">Fecha</label>
-                <input type="date" class="form-control" name="fecha" id="inputFecha" required 
-                       value="{{ request.form.get('fecha', '') or now().strftime('%Y-%m-%d') }}"
-                       placeholder="Selecciona una fecha">
+                <input type="date" class="form-control" name="fecha" id="inputFecha" required
+                    value="{{ request.form.get('fecha', '') or now().strftime('%Y-%m-%d') }}"
+                    placeholder="Selecciona una fecha">
             </div>
-            
+
             <div class="row">
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Hora de Entrada</label>
                         <input type="time" class="form-control" name="hora_entrada" id="inputEntrada" required
-                               value="{{ request.form.get('hora_entrada') or request.args.get('hora_entrada') or '' }}">
+                            value="{{ request.form.get('hora_entrada') or request.args.get('hora_entrada') or '' }}">
                     </div>
                 </div>
-                
+
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Hora de Salida</label>
                         <input type="time" class="form-control" name="hora_salida" id="inputSalida" required
-                               value="{{ request.form.get('hora_salida') or request.args.get('hora_salida') or '' }}">
+                            value="{{ request.form.get('hora_salida') or request.args.get('hora_salida') or '' }}">
                     </div>
                 </div>
-                
+
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Pausa (minutos)</label>
                         <input type="number" class="form-control" name="pausa" id="inputPausa" min="0" placeholder="0"
-                               value="{{ request.form.get('pausa') or request.args.get('pausa') or '0' }}">
+                            value="{{ request.form.get('pausa') or request.args.get('pausa') or '0' }}">
                     </div>
                 </div>
 
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label fw-bold text-primary">Total Estimado</label>
-                        <input type="text" class="form-control fw-bold bg-light" id="inputTotal" readonly 
-                               value="0.00 h" style="border-color: #cfe2ff;">
+                        <input type="text" class="form-control fw-bold bg-light" id="inputTotal" readonly value="0.00 h"
+                            style="border-color: #cfe2ff;">
                     </div>
                 </div>
             </div>
-            
+
             {% if sugerencias %}
             <div class="mb-4">
-                <label class="form-label text-muted small"><i class="bi bi-lightning-charge-fill text-warning"></i> Frecuentes:</label>
+                <label class="form-label text-muted small"><i class="bi bi-lightning-charge-fill text-warning"></i>
+                    Frecuentes:</label>
                 <div class="d-flex flex-wrap gap-2">
                     {% for sug in sugerencias %}
-                    <button type="button" 
-                            class="btn btn-outline-secondary btn-sm d-flex align-items-center"
-                            onclick="aplicarHorario('{{ sug.hora_entrada.strftime('%H:%M') }}', '{{ sug.hora_salida.strftime('%H:%M') }}', {{ sug.pausa }})">
+                    <button type="button" class="btn btn-outline-secondary btn-sm d-flex align-items-center"
+                        onclick="aplicarHorario('{{ sug.hora_entrada.strftime('%H:%M') }}', '{{ sug.hora_salida.strftime('%H:%M') }}', {{ sug.pausa }})">
                         <i class="bi bi-clock me-1"></i>
                         {{ sug.hora_entrada.strftime('%H:%M') }} - {{ sug.hora_salida.strftime('%H:%M') }}
                         {% if sug.pausa > 0 %}
-                        <span class="badge bg-secondary ms-2 text-white" style="font-size: 0.7em;">-{{ sug.pausa }}m</span>
+                        <span class="badge bg-secondary ms-2 text-white" style="font-size: 0.7em;">-{{ sug.pausa
+                            }}m</span>
                         {% endif %}
                     </button>
                     {% endfor %}
                 </div>
             </div>
             {% endif %}
-            
+
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-save"></i> Guardar
@@ -87,7 +89,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script> <script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+<script>
     // --- 0. INICIALIZACIÓN DE FLATPICKR (FECHA ESPAÑOLA) ---
     // Esto convierte el input normal en un selector avanzado
     flatpickr("#inputFecha", {
@@ -100,7 +103,7 @@
     });
 
     // --- 1. VERIFICACIÓN DE FECHA (AJAX) ---
-    document.getElementById('inputFecha').addEventListener('change', async function() {
+    document.getElementById('inputFecha').addEventListener('change', async function () {
         verificarDatos(); // Llamamos a la función centralizada
     });
 
@@ -114,11 +117,11 @@
         const fecha = document.getElementById('inputFecha').value;
         const horaEntrada = entradaInput.value;
         const horaSalida = salidaInput.value;
-        
+
         const alertaBox = document.getElementById('alertaFecha');
         const alertaTexto = document.getElementById('textoAlerta');
-        const btnGuardar = document.querySelector('button[type="submit"]'); 
-        
+        const btnGuardar = document.querySelector('button[type="submit"]');
+
         if (!fecha) {
             alertaBox.style.display = 'none';
             return;
@@ -128,7 +131,7 @@
             const response = await fetch("{{ url_for('fichajes.verificar_fecha_ajax') }}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     fecha: fecha,
                     hora_entrada: horaEntrada,
                     hora_salida: horaSalida
@@ -153,7 +156,7 @@
                 alertaBox.classList.add('alert-warning');
                 alertaTexto.innerHTML = data.messages.join('<br>');
                 alertaBox.style.display = 'block';
-                
+
             } else {
                 alertaBox.style.display = 'none';
                 alertaTexto.textContent = '';
@@ -182,7 +185,7 @@
 
             // Calculamos minutos totales efectivos
             const diffMinutos = (minutosSalida - minutosEntrada) - pausa;
-            
+
             // Evitamos negativos
             const totalMinutos = Math.max(0, diffMinutos);
 
@@ -213,7 +216,7 @@
         document.getElementById('inputEntrada').value = entrada;
         document.getElementById('inputSalida').value = salida;
         document.getElementById('inputPausa').value = pausa;
-        
+
         // Efecto visual
         const inputs = ['inputEntrada', 'inputSalida', 'inputPausa'];
         inputs.forEach(id => {
@@ -225,10 +228,10 @@
         calcularTotal();
         verificarDatos(); // Re-verificar tras aplicar sugerencia
     }
-    
+
     // Inicialización
     calcularTotal();
-    if(document.getElementById('inputFecha').value) {
+    if (document.getElementById('inputFecha').value) {
         verificarDatos();
     }
 </script>

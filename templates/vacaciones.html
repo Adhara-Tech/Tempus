@@ -90,6 +90,7 @@
                             <!-- Opción Cancelar si aún no está aprobada -->
                             <form method="POST" action="{{ url_for('ausencias.cancelar_vacaciones', id=sol.id) }}"
                                 style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-outline-danger"
                                     onclick="return confirm('¿Cancelar esta solicitud?')">
                                     <i class="bi bi-x-circle"></i> Cancelar
@@ -109,6 +110,7 @@
                                 </a>
                                 <form method="POST" action="{{ url_for('ausencias.cancelar_vacaciones', id=sol.id) }}"
                                     style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger"
                                         onclick="return confirm('¿Solicitar cancelación?')">
                                         <i class="bi bi-trash"></i> Cancelar

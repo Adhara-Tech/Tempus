@@ -31,9 +31,10 @@
                             {% if sol.version > 1 %}
                             <span class="badge bg-warning text-dark" style="font-size: 0.75em;">v{{sol.version}}</span>
                             {% endif %}
-                            
+
                             {% if sol.dias_adelanto and sol.dias_adelanto > 0 %}
-                            <span class="badge bg-info text-dark mt-1" title="Esta solicitud consume días del año siguiente">
+                            <span class="badge bg-info text-dark mt-1"
+                                title="Esta solicitud consume días del año siguiente">
                                 <i class="bi bi-info-circle"></i> Adelanto: {{ sol.dias_adelanto }} días
                             </span>
                             {% endif %}
@@ -54,11 +55,13 @@
                             <div class="btn-group">
                                 <form method="POST"
                                     action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='aprobar') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button class="btn btn-sm btn-success me-1" title="Aprobar"><i
                                             class="bi bi-check-lg"></i></button>
                                 </form>
                                 <form method="POST"
                                     action="{{ url_for('ausencias.responder_solicitud', id=sol.id, accion='rechazar') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button class="btn btn-sm btn-danger" title="Rechazar"><i
                                             class="bi bi-x-lg"></i></button>
                                 </form>
@@ -116,11 +119,13 @@
                             <div class="btn-group">
                                 <form method="POST"
                                     action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='aprobar') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button class="btn btn-sm btn-success me-1" title="Aprobar"><i
                                             class="bi bi-check-lg"></i></button>
                                 </form>
                                 <form method="POST"
                                     action="{{ url_for('ausencias.responder_baja', id=sol.id, accion='rechazar') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button class="btn btn-sm btn-danger" title="Rechazar"><i
                                             class="bi bi-x-lg"></i></button>
                                 </form>

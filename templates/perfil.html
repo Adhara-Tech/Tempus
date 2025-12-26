@@ -24,6 +24,7 @@
                 <h5 class="mb-3"><i class="bi bi-key"></i> Cambiar Contraseña</h5>
 
                 <form method="POST" action="{{ url_for('main.perfil') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="current_password" class="form-label">Contraseña Actual</label>
                         <input type="password" class="form-control" id="current_password" name="current_password"

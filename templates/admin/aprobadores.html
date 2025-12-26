@@ -13,13 +13,14 @@
     </div>
     <div class="card-body">
         <form method="POST" action="{{ url_for('admin.admin_asignar_aprobador') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="row">
                 <div class="col-md-5">
                     <label class="form-label">Usuario (Empleado)</label>
                     <select class="form-select" name="usuario_id" required>
                         <option value="">Seleccionar usuario...</option>
                         {% for u in usuarios %}
-                            <option value="{{ u.id }}">{{ u.nombre }} ({{ u.email }})</option>
+                        <option value="{{ u.id }}">{{ u.nombre }} ({{ u.email }})</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -28,9 +29,9 @@
                     <select class="form-select" name="aprobador_id" required>
                         <option value="">Seleccionar aprobador...</option>
                         {% for u in usuarios %}
-                            {% if u.rol in ['aprobador', 'admin'] %}
-                            <option value="{{ u.id }}">{{ u.nombre }} (Rol: {{ u.rol }})</option>
-                            {% endif %}
+                        {% if u.rol in ['aprobador', 'admin'] %}
+                        <option value="{{ u.id }}">{{ u.nombre }} (Rol: {{ u.rol }})</option>
+                        {% endif %}
                         {% endfor %}
                     </select>
                 </div>
@@ -69,8 +70,11 @@
                         <td><strong>{{ rel.aprobador.nombre }}</strong><br><small>{{ rel.aprobador.email }}</small></td>
                         <td>{{ rel.fecha_asignacion.strftime('%d/%m/%Y') }}</td>
                         <td>
-                            <form method="POST" action="{{ url_for('admin.admin_eliminar_aprobador', id=rel.id) }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar esta relación?')">
+                            <form method="POST" action="{{ url_for('admin.admin_eliminar_aprobador', id=rel.id) }}"
+                                style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('¿Eliminar esta relación?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>

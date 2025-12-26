@@ -15,6 +15,7 @@
                     Introduce el código enviado a tu email.
                 </p>
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label">Código de Verificación</label>
                         <input type="text" class="form-control text-center fs-2" name="code" maxlength="6"

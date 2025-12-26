@@ -31,9 +31,9 @@
                         <td>{{ sol.fecha_solicitud.strftime('%d/%m/%Y') }}</td>
                         <td>
                             {% if sol.tipo_ausencia %}
-                                <span class="badge bg-info text-dark">{{ sol.tipo_ausencia.nombre }}</span>
+                            <span class="badge bg-info text-dark">{{ sol.tipo_ausencia.nombre }}</span>
                             {% else %}
-                                <span class="badge bg-secondary">Genérica</span>
+                            <span class="badge bg-secondary">Genérica</span>
                             {% endif %}
                         </td>
                         <td>{{ sol.fecha_inicio.strftime('%d/%m/%Y') }}</td>
@@ -49,8 +49,11 @@
                         </td>
                         <td>
                             {% if sol.estado == 'pendiente' %}
-                            <form method="POST" action="{{ url_for('ausencias.cancelar_baja', id=sol.id) }}" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Cancelar esta solicitud?')">
+                            <form method="POST" action="{{ url_for('ausencias.cancelar_baja', id=sol.id) }}"
+                                style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('¿Cancelar esta solicitud?')">
                                     <i class="bi bi-x-circle"></i> Cancelar
                                 </button>
                             </form>
