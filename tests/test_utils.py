@@ -17,7 +17,7 @@ def test_calcular_dias_con_finde(test_app):
 
 def test_calcular_dias_con_festivo(test_app):
     """Semana con un festivo entre medias."""
-    from src.utils import invalidar_cache_festivos, _get_festivos_cached
+    from src.utils import invalidar_cache_festivos
     
     # Crear festivo el Miércoles (must be activo=True to be counted)
     festivo = Festivo(fecha=date(2023, 1, 4), descripcion="Festivo Test", activo=True)
@@ -25,10 +25,7 @@ def test_calcular_dias_con_festivo(test_app):
     db.session.commit()
     
     # Invalidate festivos cache so the new festivo is picked up
-    # Note: utils.py has duplicate @lru_cache decorators, so we need to clear both
-    invalidar_cache_festivos()  # Clears outer cache
-    if hasattr(_get_festivos_cached, '__wrapped__'):
-        _get_festivos_cached.__wrapped__.cache_clear()  # Clears inner cache
+    invalidar_cache_festivos()
     
     inicio = date(2023, 1, 2) # Lunes
     fin = date(2023, 1, 6)    # Viernes

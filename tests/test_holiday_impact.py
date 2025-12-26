@@ -1,7 +1,7 @@
 """Tests for holiday impact on vacation day calculations."""
 from datetime import date, datetime
 from src.models import Festivo, SolicitudVacaciones, SaldoVacaciones
-from src.utils import calcular_dias_habiles, invalidar_cache_festivos, _get_festivos_cached
+from src.utils import calcular_dias_habiles, invalidar_cache_festivos
 from src import db
 
 
@@ -24,8 +24,6 @@ def test_deleted_holiday_returns_vacation_days(test_app, employee_user):
     
     # Clear cache
     invalidar_cache_festivos()
-    if hasattr(_get_festivos_cached, '__wrapped__'):
-        _get_festivos_cached.__wrapped__.cache_clear()
     
     # Calculate days with holiday (Mon-Fri, Wed is holiday = 4 days)
     inicio = date(2025, 1, 6)  # Monday
@@ -39,8 +37,6 @@ def test_deleted_holiday_returns_vacation_days(test_app, employee_user):
     
     # Clear cache after deletion
     invalidar_cache_festivos()
-    if hasattr(_get_festivos_cached, '__wrapped__'):
-        _get_festivos_cached.__wrapped__.cache_clear()
     
     # Recalculate: Should now be 5 days
     dias_sin_festivo = calcular_dias_habiles(inicio, fin)
@@ -67,8 +63,6 @@ def test_disabled_holiday_does_not_affect_calculation(test_app):
     
     # Clear cache
     invalidar_cache_festivos()
-    if hasattr(_get_festivos_cached, '__wrapped__'):
-        _get_festivos_cached.__wrapped__.cache_clear()
     
     # Calculate days with active holiday
     inicio = date(2025, 2, 10)  # Monday
@@ -82,8 +76,6 @@ def test_disabled_holiday_does_not_affect_calculation(test_app):
     
     # Clear cache
     invalidar_cache_festivos()
-    if hasattr(_get_festivos_cached, '__wrapped__'):
-        _get_festivos_cached.__wrapped__.cache_clear()
     
     # Recalculate: Disabled holidays are treated as workdays (correct behavior)
     dias_deshabilitado = calcular_dias_habiles(inicio, fin)
@@ -105,8 +97,6 @@ def test_only_active_festivos_affect_vacation_calculation(test_app):
     
     # Clear cache
     invalidar_cache_festivos()
-    if hasattr(_get_festivos_cached, '__wrapped__'):
-        _get_festivos_cached.__wrapped__.cache_clear()
     
     # Mon-Fri: 5 workdays, minus 1 active festivo = 4 days
     inicio = date(2025, 3, 10)  # Monday
