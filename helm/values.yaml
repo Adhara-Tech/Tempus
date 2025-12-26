@@ -20,8 +20,10 @@ database:
     host: "mi-aurora-db.aws.com"
     port: 5432
     username: "admin"
-    password: "password_seguro"
     database: "fichador_prod"
+    existingSecret:
+      name: "secreto-kubernetes"
+      key: "password"
 
   # Solo se usa si type: sqlite
   sqlite:

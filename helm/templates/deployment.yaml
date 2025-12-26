@@ -33,8 +33,16 @@ spec:
             
             # OPCIÓN B: Postgres Externo (Aurora, RDS, etc)
             {{- else if eq .Values.database.type "external" }}
+            # 1. Inyectamos el password como variable de entorno oculta
+            - name: DB_PASSWORD_RAW
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.external.existingSecret.name }}
+                  key: {{ .Values.database.external.existingSecret.key }}
+            
+            # 2. Usamos esa variable para construir la URI
             - name: SQLALCHEMY_DATABASE_URI
-              value: postgresql://{{ .Values.database.external.username }}:{{ .Values.database.external.password }}@{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
+              value: postgresql://{{ .Values.database.external.username }}:$(DB_PASSWORD_RAW)@{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
             
             # OPCIÓN C: SQLite (Local)
             # Forzamos la ruta a /data/fichaje.db para usar el volumen persistente
