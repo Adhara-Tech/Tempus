@@ -174,13 +174,13 @@ def formato_hora_filter(value):
     return decimal_to_human(value)
 
 # FORZAR HTTPS
-@app.before_request
-def force_https():
+#@app.before_request
+#def force_https():
     # Solo forzamos HTTPS si NO estamos en modo debug (producción)
-    if not app.config.get('FLASK_DEBUG', False):
+#    if not app.config.get('FLASK_DEBUG', False):
         # request.scheme ya viene corregido por ProxyFix (http o https)
-        if request.scheme == 'http':
-            return redirect(request.url.replace("http://", "https://"), code=301)
+#         if request.scheme == 'http':
+#            return redirect(request.url.replace("http://", "https://"), code=301)
 
 @app.before_request
 def init_db():
