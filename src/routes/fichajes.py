@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from calendar import monthrange
 from sqlalchemy import func, desc, cast, Float
 from sqlalchemy.sql import extract
@@ -9,7 +9,6 @@ import uuid
 
 from src import db
 from src.models import Fichaje
-from src.utils import es_festivo, verificar_solapamiento
 from . import fichajes_bp
 
 @fichajes_bp.route('/fichajes')
@@ -130,7 +129,7 @@ def crear():
         # 1. Advertencia de Fin de Semana o Festivo
         if es_festivo(fecha):
             dia_semana = fecha.strftime('%A') # Opcional: traducir días si quieres
-            flash(f'Atención: Has registrado un fichaje fuera de horario laboral.', 'warning')
+            flash('Atención: Has registrado un fichaje fuera de horario laboral.', 'warning')
         # 2. Advertencia de Vacaciones/Bajas (Solapamiento)
         # Usamos verificar_solapamiento con la misma fecha de inicio y fin
         en_ausencia, motivo_ausencia = verificar_solapamiento(current_user.id, fecha, fecha)

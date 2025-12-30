@@ -16,3 +16,4 @@ pytest
 psycopg2-binary
 gevent
 ecs-logging
+flask-migrate

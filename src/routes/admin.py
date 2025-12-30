@@ -1,7 +1,7 @@
 from flask import current_app, render_template, request, redirect, url_for, flash
 from flask_login import current_user
 from werkzeug.security import generate_password_hash
-from sqlalchemy import func, or_, case, cast, Float, extract
+from sqlalchemy import func, or_, cast, Float, extract
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 

@@ -22,6 +22,7 @@ from flask_wtf.csrf import CSRFProtect
 from .models import db, Usuario, Festivo, TipoAusencia
 from .email_service import init_mail
 from flask_dance.contrib.google import make_google_blueprint, google
+from flask_migrate import Migrate
 
 # Carga de fichero env
 from dotenv import load_dotenv
@@ -99,7 +100,12 @@ app.config["GOOGLE_OAUTH_CLIENT_ID"] = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
 app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
 
 google_bp = make_google_blueprint(
-    scope=["profile", "email"],
+    scope=[
+        "openid",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/calendar.events"
+    ],
     redirect_to="main.index"
 )
 app.register_blueprint(google_bp, url_prefix="/login")
@@ -134,6 +140,7 @@ def ratelimit_handler(e):
 
 # INICIALIZACIÓN DE EXTENSIONES
 db.init_app(app)
+migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'

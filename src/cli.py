@@ -73,7 +73,7 @@ def cerrar_anio_command(anio_origen, max_carryover, gestionar_festivos, anios_an
     if gestionar_festivos != 'mantener':
         print(f"   • Festivos a {gestionar_festivos}: {len(festivos_antiguos)} (anteriores a {anio_limite})")
         if festivos_antiguos and len(festivos_antiguos) <= 10:
-            print(f"\n   Festivos afectados:")
+            print("\n   Festivos afectados:")
             for f in festivos_antiguos:
                 print(f"      - {f.fecha.strftime('%d/%m/%Y')}: {f.descripcion}")
     
@@ -119,7 +119,7 @@ def cerrar_anio_command(anio_origen, max_carryover, gestionar_festivos, anios_an
     # 4. CIERRE DE SALDOS DE VACACIONES
     # ========================================
     
-    print(f"💼 Procesando saldos de vacaciones...")
+    print("💼 Procesando saldos de vacaciones...")
     print()
     
     count_creados = 0
@@ -208,11 +208,11 @@ def cerrar_anio_command(anio_origen, max_carryover, gestionar_festivos, anios_an
     print("=" * 70)
     
     if gestionar_festivos != 'mantener':
-        print(f"\n📅 Festivos:")
+        print("\n📅 Festivos:")
         print(f"   • Procesados: {festivos_procesados}")
         print(f"   • Acción: {gestionar_festivos.upper()}")
     
-    print(f"\n💼 Saldos de Vacaciones:")
+    print("\n💼 Saldos de Vacaciones:")
     print(f"   • Creados: {count_creados}")
     if force:
         print(f"   • Actualizados: {count_actualizados}")

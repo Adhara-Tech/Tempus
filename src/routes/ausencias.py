@@ -2,6 +2,7 @@ from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from datetime import datetime, date
 import uuid
+from src.google_calendar import crear_evento_vacaciones, crear_evento_baja, eliminar_evento
 
 from src import db
 from src.models import SolicitudVacaciones, SolicitudBaja, TipoAusencia, Usuario, SaldoVacaciones
@@ -489,52 +490,58 @@ def responder_solicitud(id, accion):
         
     solicitud = SolicitudVacaciones.query.get_or_404(id)
     
-    # Seguridad: Validar que el empleado realmente está a su cargo (o soy admin)
+    # Seguridad: Validar que el empleado realmente está a su cargo
     es_mi_empleado = any(r.usuario_id == solicitud.usuario_id for r in current_user.usuarios_a_cargo)
     if not es_mi_empleado and current_user.rol != 'admin':
          flash('No tienes permiso para gestionar solicitudes de este usuario.', 'danger')
          return redirect(url_for('ausencias.aprobar_solicitudes'))
 
-    # Procesar Acción
     if accion == 'aprobar':
-        # --- CASO A: CREACIÓN (Primera vez) ---
         if solicitud.tipo_accion == 'creacion':
-            # 1. Actualizar Saldo
             anio = solicitud.fecha_inicio.year
             saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
             if saldo:
                 saldo.dias_disfrutados += solicitud.dias_solicitados
-                # Seguridad básica: permitir negativo con warning en log, o bloquear. 
-                # El usuario ya fue avisado al pedir. Aquí ejecutamos.
             
             solicitud.estado = 'aprobada'
-            flash(f'Solicitud de vacaciones aprobada. Días descontados.', 'success')
+            
+            # ✅ NUEVO: Sincronizar con Google Calendar
+            event_id = crear_evento_vacaciones(solicitud)
+            if event_id:
+                solicitud.google_event_id = event_id
+            
+            flash('Solicitud de vacaciones aprobada. Días descontados.', 'success')
 
-        # --- CASO B: MODIFICACIÓN O CANCELACIÓN (Versionado) ---
         elif solicitud.tipo_accion in ['modificacion', 'cancelacion']:
-            # 1. Buscar V1 (La versión actual anterior)
             v1 = SolicitudVacaciones.query.filter(
                 SolicitudVacaciones.grupo_id == solicitud.grupo_id,
                 SolicitudVacaciones.es_actual == True,
                 SolicitudVacaciones.id != solicitud.id
             ).first()
 
-            # 2. Consolidar V1 (Obsoleta)
             dias_reintegro = 0
             if v1:
                 v1.es_actual = False
                 dias_reintegro = v1.dias_solicitados
+                
+                # ✅ NUEVO: Eliminar evento viejo de Calendar
+                if v1.google_event_id:
+                    eliminar_evento(solicitud.usuario, v1.google_event_id)
             
-            # 3. Activar V2 (Esta solicitud)
             solicitud.estado = 'aprobada'
             solicitud.es_actual = True
             
-            # 4. Ajuste de Saldo
             coste_nuevo = 0
             if solicitud.tipo_accion == 'modificacion':
                 coste_nuevo = solicitud.dias_solicitados
+                
+                # ✅ NUEVO: Crear evento nuevo en Calendar
+                event_id = crear_evento_vacaciones(solicitud)
+                if event_id:
+                    solicitud.google_event_id = event_id
+                    
             elif solicitud.tipo_accion == 'cancelacion':
-                coste_nuevo = 0 # Cancelar implica que no se consumen días
+                coste_nuevo = 0
             
             anio = solicitud.fecha_inicio.year
             saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
@@ -589,15 +596,19 @@ def responder_baja(id, accion):
         
     solicitud = SolicitudBaja.query.get_or_404(id)
     
-    # Seguridad: Validar que el empleado está a su cargo
     es_mi_empleado = any(r.usuario_id == solicitud.usuario_id for r in current_user.usuarios_a_cargo)
     if not es_mi_empleado and current_user.rol != 'admin':
          flash('No tienes permiso para gestionar solicitudes de este usuario.', 'danger')
          return redirect(url_for('ausencias.aprobar_solicitudes'))
     
-    # Procesar Acción
     if accion == 'aprobar':
         solicitud.estado = 'aprobada'
+        
+        # ✅ NUEVO: Sincronizar con Google Calendar
+        event_id = crear_evento_baja(solicitud)
+        if event_id:
+            solicitud.google_event_id = event_id
+        
         flash(f'Baja/Permiso de {solicitud.usuario.nombre} aprobada.', 'success')
         
     elif accion == 'rechazar':
@@ -608,7 +619,6 @@ def responder_baja(id, accion):
         flash('Acción no reconocida.', 'warning')
         return redirect(url_for('ausencias.aprobar_solicitudes'))
     
-    # Registrar auditoría
     solicitud.aprobador_id = current_user.id
     solicitud.fecha_respuesta = datetime.utcnow()
     

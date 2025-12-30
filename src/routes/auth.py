@@ -1,6 +1,7 @@
-from flask import current_app, render_template, request, redirect, url_for, flash, session, current_app
+from flask import render_template, request, redirect, url_for, flash, session, current_app
 from datetime import datetime, timedelta
 import random
+import json
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 from flask_dance.contrib.google import google
@@ -53,6 +54,10 @@ def verify_ip_and_login(user):
 
 @oauth_authorized.connect_via(google_bp)
 def google_logged_in(blueprint, token):
+    """
+    Callback cuando el usuario se autentica con Google.
+    Guarda el token para usar con Calendar API.
+    """
     if not google.authorized:
         return False
     
@@ -66,6 +71,17 @@ def google_logged_in(blueprint, token):
     
     user = Usuario.query.filter_by(email=email).first()
     if user:
+        # ✅ NUEVO: Guardar token en base de datos
+        try:
+            current_app.logger.info(f"Guardando token de Google Calendar para {user.nombre}")
+            user.google_token = json.dumps(token)
+            user.google_calendar_enabled = True
+            db.session.commit()
+            print(f"✅ Token de Google Calendar guardado para {user.nombre}")
+        except Exception as e:
+            print(f"⚠️ Error guardando token: {e}")
+            db.session.rollback()
+        
         return verify_ip_and_login(user)
     else:
         flash("No existe un usuario con este email.", "danger")

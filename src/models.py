@@ -37,6 +37,10 @@ class Usuario(UserMixin, db.Model):
     dias_vacaciones = db.Column(db.Integer, default=25)
     fecha_alta = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # ✅ NUEVO: Tokens de Google Calendar
+    google_token = db.Column(db.Text, nullable=True)
+    google_calendar_enabled = db.Column(db.Boolean, default=False)
+    
     # Relación con fichajes
     fichajes = db.relationship(
         'Fichaje', 

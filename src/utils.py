@@ -1,7 +1,6 @@
 from functools import lru_cache
-from datetime import timedelta, date, datetime
+from datetime import timedelta, datetime
 from src.models import Festivo, SolicitudVacaciones, SolicitudBaja, SaldoVacaciones, Fichaje
-from sqlalchemy import or_, and_
 
 
 @lru_cache(maxsize=1)
@@ -9,7 +8,6 @@ def _get_festivos_cached(cache_key):
     """
     Cache interno de festivos ACTIVOS.
     """
-    from src.models import Festivo
     return set([
         f.fecha for f in Festivo.query.filter_by(activo=True).all()
     ])

@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, date
 from src import db
-from src.models import Usuario, SolicitudVacaciones, SolicitudBaja, Aprobador, Festivo, Fichaje # <--- Añadido Fichaje
+from src.models import SolicitudVacaciones, SolicitudBaja, Aprobador, Festivo, Fichaje # <--- Añadido Fichaje
 from src.utils import calcular_dias_laborables
 from . import main_bp
 
