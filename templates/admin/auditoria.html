@@ -11,13 +11,16 @@
     <div class="card-body">
         <form method="GET" class="row g-3">
             <div class="col-md-4">
-                <input type="text" class="form-control" name="usuario" placeholder="Buscar usuario..." value="{{ request.args.get('usuario', '') }}">
+                <input type="text" class="form-control" name="usuario" placeholder="Buscar usuario..."
+                    value="{{ request.args.get('usuario', '') }}">
             </div>
             <div class="col-md-3">
-                <input type="date" class="form-control" name="fecha_inicio" value="{{ request.args.get('fecha_inicio', '') }}">
+                <input type="date" class="form-control" name="fecha_inicio"
+                    value="{{ request.args.get('fecha_inicio', '') }}">
             </div>
             <div class="col-md-3">
-                <input type="date" class="form-control" name="fecha_fin" value="{{ request.args.get('fecha_fin', '') }}">
+                <input type="date" class="form-control" name="fecha_fin"
+                    value="{{ request.args.get('fecha_fin', '') }}">
             </div>
             <div class="col-md-2">
                 <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filtrar</button>
@@ -50,11 +53,11 @@
                         </td>
                         <td>
                             {% if 'ELIMINACIÓN' in log.tipo_etiqueta %}
-                                <span class="badge bg-danger">{{ log.tipo_etiqueta }}</span>
+                            <span class="badge bg-danger">{{ log.tipo_etiqueta }}</span>
                             {% elif 'CREACIÓN' in log.tipo_etiqueta %}
-                                <span class="badge bg-info text-dark">{{ log.tipo_etiqueta }}</span>
+                            <span class="badge bg-info text-dark">{{ log.tipo_etiqueta }}</span>
                             {% else %}
-                                <span class="badge bg-warning text-dark">{{ log.tipo_etiqueta }}</span>
+                            <span class="badge bg-warning text-dark">{{ log.tipo_etiqueta }}</span>
                             {% endif %}
                         </td>
                         <td class="fw-bold text-secondary">{{ log.objeto }}</td>
@@ -62,7 +65,7 @@
                         <td>
                             <i class="bi bi-person-gear text-primary"></i> {{ log.editor }}
                         </td>
-                        <td><small>{{ log.detalle }}</small></td>
+                        <td><small>{{ log.detalle | replace('\n', '<br>') | safe }}</small></td>
                         <td><small class="text-muted fst-italic">{{ log.motivo }}</small></td>
                     </tr>
                     {% else %}
