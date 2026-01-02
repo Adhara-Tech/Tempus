@@ -107,10 +107,13 @@ google_bp = make_google_blueprint(
 app.register_blueprint(google_bp, url_prefix="/login")
 
 # Límite global
+# 5 por segundo para proteger contra ataques de fuerza bruta
+# 30 por minuto debería ser suficiente para la mayoría de los usuarios
+# 3000 por día como límite máximo global, suficiente incluso si se deja la app abierta la 24 horas del día
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=["5 per second", "30 per minute", "3000 per day"],
     storage_uri="memory://"
 )
 

@@ -8,6 +8,13 @@
 {% block content %}
 <h1 class="mb-4"><i class="bi bi-pencil"></i> Editar Fichaje</h1>
 
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title text-muted small text-uppercase mb-3">Ocupación del Día</h5>
+        {% include "components/timeline.html" %}
+    </div>
+</div>
+
 <div class="card">
     <div class="card-body">
 
@@ -197,5 +204,10 @@
     // Inicialización al cargar la página
     calcularTotal();
     verificarDatos();
+
+    // --- ACTIVAR TIMELINE ---
+    document.addEventListener('DOMContentLoaded', function () {
+        initTimeline('inputFecha', 'inputEntrada', 'inputSalida', {{ fichaje.id }});
+    });
 </script>
 {% endblock %}

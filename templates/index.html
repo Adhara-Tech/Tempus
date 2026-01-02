@@ -9,11 +9,15 @@
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-clock"></i> Fichajes</h5>
                 <p class="card-text">Registra tus entradas y salidas</p>
+                {% if config.ENABLE_MANUAL_ENTRY %}
                 <a href="{{ url_for('fichajes.crear') }}" class="btn btn-light btn-sm">Fichar ahora</a>
+                {% else %}
+                <a href="{{ url_for('fichajes.reloj') }}" class="btn btn-light btn-sm">Ir al Reloj</a>
+                {% endif %}
             </div>
         </div>
     </div>
-    
+
     <div class="col-md-6 col-lg-3">
         <div class="card text-white bg-success">
             <div class="card-body">
@@ -23,7 +27,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-md-6 col-lg-3">
         <div class="card text-white bg-info">
             <div class="card-body">
@@ -33,7 +37,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-md-6 col-lg-3">
         <div class="card text-white bg-warning">
             <div class="card-body">
@@ -46,20 +50,28 @@
 </div>
 
 {% if current_user.rol == 'aprobador' or current_user.rol == 'admin' %}
-    {% if solicitudes_pendientes_count > 0 %}
-    <div class="card mt-4">
-        <div class="card-header bg-primary text-white">
-            <h5><i class="bi bi-check-circle"></i> Solicitudes Pendientes</h5>
-        </div>
-        <div class="card-body">
-            <p>Tienes <strong>{{ solicitudes_pendientes_count }}</strong> solicitud(es) (vacaciones o bajas) pendiente(s) de aprobar.</p>
-            <a href="{{ url_for('ausencias.aprobar_solicitudes') }}" class="btn btn-primary">Ver solicitudes</a>
-        </div>
+{% if solicitudes_pendientes_count > 0 %}
+<div class="card mt-4">
+    <div class="card-header bg-primary text-white">
+        <h5><i class="bi bi-check-circle"></i> Solicitudes Pendientes</h5>
     </div>
-    {% endif %}
+    <div class="card-body">
+        <p>Tienes <strong>{{ solicitudes_pendientes_count }}</strong> solicitud(es) (vacaciones o bajas) pendiente(s) de
+            aprobar.</p>
+        <a href="{{ url_for('ausencias.aprobar_solicitudes') }}" class="btn btn-primary">Ver solicitudes</a>
+    </div>
+</div>
+{% endif %}
 {% endif %}
 
-<div class="mt-5">
+<div class="card mt-5 mb-4 shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title text-muted small text-uppercase mb-3">Tu Actividad de Hoy</h5>
+        {% include "components/timeline.html" %}
+    </div>
+</div>
+
+<div class="mt-4">
     <h3 class="mb-3"><i class="bi bi-activity"></i> Resumen Semanal</h3>
     <div class="row">
         <div class="col-md-6">
@@ -102,9 +114,24 @@
                         <tr>
                             <td>{{ fichaje.fecha.strftime('%d/%m/%Y') }}</td>
                             <td>{{ fichaje.hora_entrada.strftime('%H:%M') }}</td>
-                            <td>{{ fichaje.hora_salida.strftime('%H:%M') }}</td>
+
+                            <td>
+                                {% if fichaje.hora_salida %}
+                                {{ fichaje.hora_salida.strftime('%H:%M') }}
+                                {% else %}
+                                <span class="badge bg-success" style="font-size: 0.7em;">En curso</span>
+                                {% endif %}
+                            </td>
+
                             <td>{{ fichaje.pausa }}m</td>
-                            <td>{{ fichaje.horas_trabajadas() | formato_hora }}h</td>
+
+                            <td>
+                                {% if fichaje.hora_salida %}
+                                {{ fichaje.horas_trabajadas() | formato_hora }}h
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -116,4 +143,13 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Inicializar Timeline para hoy
+        initTimeline();
+    });
+</script>
 {% endblock %}

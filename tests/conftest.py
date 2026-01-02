@@ -13,7 +13,8 @@ def test_app():
         "SERVER_NAME": "localhost.localdomain",
         "RATELIMIT_ENABLED": False,  # Disable rate limiting for tests
         "MFA_ENABLED": True,         # Ensure MFA is on by default for tests
-        "DEFAULT_ADMIN_INITIAL_PASSWORD": "admin123"
+        "DEFAULT_ADMIN_INITIAL_PASSWORD": "admin123",
+        "ENABLE_MANUAL_ENTRY": True  # Allow manual entry in tests
     })
 
     # Reset limiter storage to avoid rate limit carryover between tests

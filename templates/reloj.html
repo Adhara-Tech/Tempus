@@ -10,7 +10,7 @@
                 <h4 class="mb-0"><i class="bi bi-stopwatch"></i> Control Horario</h4>
             </div>
             <div class="card-body p-5">
-                
+
                 <div class="mb-4">
                     <h5 class="text-muted text-uppercase small ls-1">Estado Actual</h5>
                     <h2 id="estadoTexto" class="fw-bold text-secondary">Cargando...</h2>
@@ -20,7 +20,8 @@
                     00:00:00
                 </div>
 
-                <button id="btnAccion" class="btn btn-lg w-100 py-3 fw-bold rounded-pill shadow-sm disabled" onclick="toggleFichaje()">
+                <button id="btnAccion" class="btn btn-lg w-100 py-3 fw-bold rounded-pill shadow-sm disabled"
+                    onclick="toggleFichaje()">
                     <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
                     <span id="btnTexto">Conectando...</span>
                 </button>
@@ -31,7 +32,12 @@
 
             </div>
         </div>
-        
+
+        <div class="mt-4">
+            <h5 class="text-muted text-center mb-3">Resumen del Día</h5>
+            {% include "components/timeline.html" %}
+        </div>
+
         {% if config.ENABLE_MANUAL_ENTRY %}
         <div class="mt-4">
             <a href="{{ url_for('fichajes.crear') }}" class="text-muted small text-decoration-none">
@@ -48,8 +54,10 @@
     let intervaloCronometro;
     let fechaInicioGlobal = null;
 
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         verificarEstado();
+        // Inicializar Timeline (sin parámetros usa "hoy")
+        initTimeline();
     });
 
     // 1. OBTENER ESTADO INICIAL
@@ -68,7 +76,7 @@
     async function toggleFichaje() {
         const btn = document.getElementById('btnAccion');
         const spinner = btn.querySelector('.spinner-border');
-        
+
         // Bloquear botón durante la petición
         btn.disabled = true;
         spinner.classList.remove('d-none');
@@ -81,12 +89,15 @@
                     'X-CSRFToken': "{{ csrf_token() }}" // Importante para seguridad
                 }
             });
-            
+
             const data = await response.json();
-            
+
             // Recargar estado completo para asegurar sincronización
-            await verificarEstado(); 
-            
+            await verificarEstado();
+
+            // Recargar también el timeline para ver el nuevo bloque
+            initTimeline();
+
             // Mostrar feedback visual (opcional)
             // alert(data.mensaje); 
 
@@ -114,16 +125,16 @@
             // --- ESTADO: TRABAJANDO ---
             estadoTexto.textContent = "TRABAJANDO";
             estadoTexto.className = "fw-bold text-success";
-            
+
             btn.className = "btn btn-lg w-100 py-3 fw-bold rounded-pill shadow-sm btn-danger";
             btnTexto.textContent = "DETENER / PAUSAR";
-            
+
             // Configurar cronómetro
             fechaInicioGlobal = new Date(data.inicio); // UTC/ISO desde servidor
             infoInicio.style.opacity = "1";
-            
+
             // Formatear hora de inicio local para mostrar
-            const horaLocal = fechaInicioGlobal.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const horaLocal = fechaInicioGlobal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             horaInicioSpan.textContent = horaLocal;
 
             // Iniciar contador
@@ -134,14 +145,14 @@
             // --- ESTADO: DESCANSANDO / FUERA ---
             estadoTexto.textContent = "NO ACTIVO";
             estadoTexto.className = "fw-bold text-secondary";
-            
+
             btn.className = "btn btn-lg w-100 py-3 fw-bold rounded-pill shadow-sm btn-success";
             btnTexto.textContent = "INICIAR JORNADA";
-            
+
             document.getElementById('cronometro').textContent = "00:00:00";
             infoInicio.style.opacity = "0";
         }
-        
+
         btn.disabled = false;
     }
 
@@ -151,8 +162,8 @@
 
         const ahora = new Date();
         // Diferencia en milisegundos
-        const diff = ahora - fechaInicioGlobal; 
-        
+        const diff = ahora - fechaInicioGlobal;
+
         // Evitar negativos si el reloj del cliente va mal
         const totalSegundos = Math.max(0, Math.floor(diff / 1000));
 

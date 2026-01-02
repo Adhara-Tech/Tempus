@@ -458,3 +458,72 @@ def toggle_fichaje():
 def reloj():
     """Nueva pantalla de fichaje Start/Stop"""
     return render_template('reloj.html')
+
+@fichajes_bp.route('/fichajes/api/timeline', methods=['GET'])
+@login_required
+def api_timeline():
+    """
+    Devuelve los tramos horarios de un día específico para el timeline visual.
+    """
+    fecha_str = request.args.get('fecha')
+    if not fecha_str:
+        fecha = date.today()
+    else:
+        try:
+            fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify([]) # Fecha inválida, devolvemos lista vacía
+
+    # 1. Obtener fichajes del día (excluyendo eliminados)
+    fichajes = Fichaje.query.filter(
+        Fichaje.usuario_id == current_user.id,
+        Fichaje.es_actual == True,
+        Fichaje.tipo_accion != 'eliminacion',
+        Fichaje.fecha == fecha
+    ).order_by(Fichaje.hora_entrada).all()
+
+    bloques = []
+    
+    # 2. Convertir a formato porcentual para la barra (0-100%)
+    # Un día tiene 1440 minutos (24 * 60)
+    TOTAL_MINUTOS = 1440 
+
+    ahora = get_user_now() # Usamos tu helper de zona horaria
+    hora_actual_minutos = ahora.hour * 60 + ahora.minute
+
+    for f in fichajes:
+        entrada_min = f.hora_entrada.hour * 60 + f.hora_entrada.minute
+        
+        if f.hora_salida:
+            salida_min = f.hora_salida.hour * 60 + f.hora_salida.minute
+            tipo = 'cerrado'
+        else:
+            # Si es hoy, llega hasta ahora. Si es pasado, hasta 23:59
+            if f.fecha == ahora.date():
+                salida_min = hora_actual_minutos
+            else:
+                salida_min = 1439 # Final del día
+            tipo = 'activo'
+
+        # Corregir si cruza medianoche (simple visualización corta en 23:59)
+        if salida_min < entrada_min: 
+            salida_min = 1439 
+
+        duracion = salida_min - entrada_min
+        
+        # Calcular porcentajes para CSS
+        left_pct = (entrada_min / TOTAL_MINUTOS) * 100
+        width_pct = (duracion / TOTAL_MINUTOS) * 100
+
+        bloques.append({
+            'left': f"{left_pct:.2f}%",
+            'width': f"{width_pct:.2f}%",
+            'tipo': tipo,
+            'hora_entrada': f.hora_entrada.strftime('%H:%M'),
+            'hora_salida': f.hora_salida.strftime('%H:%M') if f.hora_salida else "..."
+        })
+
+    return jsonify({
+        'bloques': bloques,
+        'hora_actual_pct': (hora_actual_minutos / TOTAL_MINUTOS) * 100 if fecha == ahora.date() else None
+    })

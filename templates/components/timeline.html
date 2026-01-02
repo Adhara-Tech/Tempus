@@ -1,0 +1,297 @@
+<style>
+    .timeline-wrapper {
+        position: relative;
+        padding-top: 20px;
+        /* Espacio para etiquetas superiores */
+        padding-bottom: 20px;
+        /* Espacio para etiquetas inferiores */
+    }
+
+    .timeline-container {
+        position: relative;
+        height: 50px;
+        background-color: #f8f9fa;
+        border-radius: 25px;
+        /* Bordes más redondeados */
+        border: 1px solid #000;
+        overflow: visible;
+        /* Permitir que las etiquetas salgan */
+    }
+
+    /* Marcadores de fondo sutiles */
+    .timeline-marker {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-left: 1px solid #9a9fa5;
+        pointer-events: none;
+    }
+
+    .timeline-marker-label {
+        position: absolute;
+        top: -18px;
+        transform: translateX(-50%);
+        font-size: 0.65em;
+        color: #000;
+    }
+
+    /* Bloque Cerrado (Azul) */
+    .timeline-block-cerrado {
+        position: absolute;
+        top: 10px;
+        bottom: 10px;
+        background-color: #0d6efd;
+        border-radius: 4px;
+        z-index: 2;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        min-width: 2px;
+        /* Asegurar visibilidad mínima */
+    }
+
+    /* Bloque Activo (Construcción) */
+    .timeline-block-activo {
+        position: absolute;
+        top: 5px;
+        bottom: 5px;
+        z-index: 3;
+        border-radius: 4px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        background: repeating-linear-gradient(45deg, #ffc107, #ffc107 10px, #343a40 10px, #343a40 20px);
+    }
+
+    /* Bloque Preview (Edición) */
+    .timeline-block-preview {
+        position: absolute;
+        top: 12px;
+        bottom: 12px;
+        z-index: 5;
+        border: 2px dashed #333;
+        background-color: rgba(255, 255, 0, 0.3);
+        border-radius: 4px;
+        pointer-events: none;
+        transition: all 0.2s ease;
+    }
+
+    .timeline-block-preview.error {
+        background-color: rgba(220, 53, 69, 0.5);
+        border-color: #dc3545;
+    }
+
+    /* ETIQUETAS DE HORA EN LOS BLOQUES */
+    .block-time-label {
+        position: absolute;
+        font-size: 0.7em;
+        font-weight: bold;
+        color: #000;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+
+    .time-start {
+        bottom: 100%;
+        /* Encima del bloque */
+        left: 0;
+        margin-bottom: 2px;
+    }
+
+    .time-end {
+        top: 100%;
+        /* Debajo del bloque */
+        right: 0;
+        margin-top: 2px;
+    }
+
+    /* Línea de Hora Actual */
+    .current-time-line {
+        position: absolute;
+        top: -5px;
+        bottom: -5px;
+        width: 2px;
+        background-color: #dc3545;
+        z-index: 10;
+        pointer-events: none;
+    }
+
+    .current-time-label {
+        position: absolute;
+        top: -25px;
+        transform: translateX(-50%);
+        background: #dc3545;
+        color: white;
+        font-size: 0.6em;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-weight: bold;
+    }
+</style>
+
+<div class="timeline-wrapper">
+    <div class="timeline-container" id="timelineBar">
+        <div class="timeline-marker" style="left: 0%;"></div>
+        <div class="timeline-marker-label" style="left: 0%;">00:00</div>
+
+        <div class="timeline-marker" style="left: 25%;"></div>
+        <div class="timeline-marker-label" style="left: 25%;">06:00</div>
+
+        <div class="timeline-marker" style="left: 50%;"></div>
+        <div class="timeline-marker-label" style="left: 50%;">12:00</div>
+
+        <div class="timeline-marker" style="left: 75%;"></div>
+        <div class="timeline-marker-label" style="left: 75%;">18:00</div>
+
+        <div class="timeline-marker" style="left: 100%;"></div>
+        <div class="timeline-marker-label" style="left: 100%; transform: translateX(-100%);">23:59</div>
+
+        <div id="timelineBlocks"></div>
+        <div id="timelinePreview"></div>
+
+        <div id="currentTimeMarker" class="current-time-line" style="display: none;"></div>
+        <div id="currentTimeLabel" class="current-time-label" style="display: none;">AHORA</div>
+    </div>
+</div>
+
+<script>
+    /**
+     * Timeline Widget Logic
+     */
+    function initTimeline(inputDateId = null, inputStartId = null, inputEndId = null, currentFichajeId = null) {
+        let refreshInterval;
+        const container = document.getElementById('timelineBlocks');
+        const previewContainer = document.getElementById('timelinePreview');
+
+        function loadTimeline() {
+            let fecha = null;
+            if (inputDateId) {
+                const input = document.getElementById(inputDateId);
+                if (input && input.value) fecha = input.value;
+            }
+
+            let url = "{{ url_for('fichajes.api_timeline') }}";
+            if (fecha) url += `?fecha=${fecha}`;
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => renderBlocks(data, currentFichajeId))
+                .catch(err => console.error("Error cargando timeline:", err));
+        }
+
+        function renderBlocks(data, excludeId) {
+            container.innerHTML = '';
+
+            data.bloques.forEach(b => {
+                // Aquí podrías filtrar por ID si la API lo devolviera, para no pintar el que se edita.
+                // Por ahora lo pintamos todo.
+
+                const div = document.createElement('div');
+                div.className = b.tipo === 'activo' ? 'timeline-block-activo' : 'timeline-block-cerrado';
+                div.style.left = b.left;
+                div.style.width = b.width;
+                div.setAttribute('title', `${b.hora_entrada} - ${b.hora_salida}`);
+
+                // Añadir etiquetas de hora SOLO si el bloque es lo suficientemente ancho (> 4%)
+                const widthVal = parseFloat(b.width);
+                if (widthVal > 4) {
+                    // Hora Inicio (Arriba izquierda)
+                    const labelStart = document.createElement('div');
+                    labelStart.className = 'block-time-label time-start';
+                    labelStart.textContent = b.hora_entrada;
+                    div.appendChild(labelStart);
+
+                    // Hora Fin (Abajo derecha)
+                    const labelEnd = document.createElement('div');
+                    labelEnd.className = 'block-time-label time-end';
+                    labelEnd.textContent = b.hora_salida !== '...' ? b.hora_salida : '';
+                    div.appendChild(labelEnd);
+                }
+
+                container.appendChild(div);
+            });
+
+            // Marcador Ahora
+            const marker = document.getElementById('currentTimeMarker');
+            const label = document.getElementById('currentTimeLabel');
+            if (data.hora_actual_pct !== null) {
+                marker.style.display = 'block';
+                marker.style.left = `${data.hora_actual_pct}%`;
+
+                label.style.display = 'block';
+                label.style.left = `${data.hora_actual_pct}%`;
+            } else {
+                marker.style.display = 'none';
+                label.style.display = 'none';
+            }
+
+            updatePreview();
+        }
+
+        // --- PREVISUALIZACIÓN ---
+        function updatePreview() {
+            if (!inputStartId || !inputEndId) return;
+
+            const startVal = document.getElementById(inputStartId).value;
+            const endVal = document.getElementById(inputEndId).value;
+
+            previewContainer.innerHTML = '';
+
+            if (startVal && endVal) {
+                const startMins = timeToMinutes(startVal);
+                let endMins = timeToMinutes(endVal);
+                if (endMins < startMins) endMins = 1439;
+
+                const totalMinutos = 1440;
+                const leftPct = (startMins / totalMinutos) * 100;
+                const widthPct = ((endMins - startMins) / totalMinutos) * 100;
+
+                const div = document.createElement('div');
+                div.className = 'timeline-block-preview';
+                div.style.left = `${leftPct}%`;
+                div.style.width = `${widthPct}%`;
+
+                // Etiquetas para la previsualización
+                if (widthPct > 4) {
+                    const labelStart = document.createElement('div');
+                    labelStart.className = 'block-time-label time-start';
+                    labelStart.style.color = '#000'; // Destacar
+                    labelStart.textContent = startVal;
+                    div.appendChild(labelStart);
+
+                    const labelEnd = document.createElement('div');
+                    labelEnd.className = 'block-time-label time-end';
+                    labelEnd.style.color = '#000';
+                    labelEnd.textContent = endVal;
+                    div.appendChild(labelEnd);
+                }
+
+                // Chequeo visual error
+                const alerta = document.getElementById('alertaFecha');
+                if (alerta && alerta.style.display !== 'none' && alerta.classList.contains('alert-danger')) {
+                    div.classList.add('error');
+                }
+
+                previewContainer.appendChild(div);
+            }
+        }
+
+        function timeToMinutes(timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+        }
+
+        // Listeners
+        if (inputDateId) {
+            document.getElementById(inputDateId).addEventListener('change', loadTimeline);
+        }
+
+        if (inputStartId && inputEndId) {
+            const inputs = [document.getElementById(inputStartId), document.getElementById(inputEndId)];
+            inputs.forEach(el => {
+                el.addEventListener('input', updatePreview);
+                el.addEventListener('blur', () => setTimeout(updatePreview, 200));
+            });
+        }
+
+        loadTimeline();
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(loadTimeline, 30000);
+    }
+</script>
