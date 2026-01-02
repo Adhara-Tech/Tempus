@@ -128,11 +128,12 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if config.ENABLE_MANUAL_ENTRY %}
                             {% if fichaje.hora_salida %}
                             <a href="{{ url_for('fichajes.crear', 
-                                    hora_entrada=fichaje.hora_entrada.strftime('%H:%M'),
-                                    hora_salida=fichaje.hora_salida.strftime('%H:%M'),
-                                    pausa=fichaje.pausa) }}" class="btn btn-sm btn-primary" title="Clonar">
+                                        hora_entrada=fichaje.hora_entrada.strftime('%H:%M'),
+                                        hora_salida=fichaje.hora_salida.strftime('%H:%M'),
+                                        pausa=fichaje.pausa) }}" class="btn btn-sm btn-primary" title="Clonar">
                                 <i class="bi bi-files"></i>
                             </a>
                             {% else %}
@@ -140,6 +141,7 @@
                                 title="No se puede clonar un fichaje abierto">
                                 <i class="bi bi-files"></i>
                             </button>
+                            {% endif %}
                             {% endif %}
 
                             <a href="{{ url_for('fichajes.editar', id=fichaje.id) }}" class="btn btn-sm btn-warning">
