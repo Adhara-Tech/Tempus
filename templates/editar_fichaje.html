@@ -148,7 +148,10 @@
         try {
             const response = await fetch("{{ url_for('fichajes.verificar_fecha_ajax') }}", {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
                 body: JSON.stringify({
                     fecha: fecha,
                     hora_entrada: horaEntrada,
