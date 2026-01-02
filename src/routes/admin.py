@@ -419,7 +419,8 @@ def admin_resumen():
         Fichaje.es_actual == True,
         Fichaje.tipo_accion != 'eliminacion',
         Fichaje.fecha >= fecha_inicio_anio,
-        Fichaje.fecha <= fecha_fin_anio
+        Fichaje.fecha <= fecha_fin_anio,
+        Fichaje.hora_salida.isnot(None)
     ).group_by(Fichaje.usuario_id).all()
 
     fichajes_dict = {s.usuario_id: {'total_fichajes': s.total_fichajes, 'total_horas': float(s.total_horas or 0)} for s in fichajes_stats}
@@ -859,7 +860,8 @@ def admin_fichajes():
         Fichaje.es_actual == True,
         Fichaje.tipo_accion != 'eliminacion',
         Fichaje.fecha >= fecha_inicio,
-        Fichaje.fecha <= fecha_fin
+        Fichaje.fecha <= fecha_fin,
+        Fichaje.hora_salida.isnot(None)
     )
     
     if usuario_id:

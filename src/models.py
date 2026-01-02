@@ -135,7 +135,7 @@ class Fichaje(db.Model):
     
     fecha = db.Column(db.Date, nullable=False)
     hora_entrada = db.Column(db.Time, nullable=False)
-    hora_salida = db.Column(db.Time, nullable=False)
+    hora_salida = db.Column(db.Time, nullable=True)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Campo pausa
@@ -149,6 +149,10 @@ class Fichaje(db.Model):
         return f'<Fichaje {self.fecha} ({estado}) - {self.usuario.nombre}>'
     
     def horas_trabajadas(self):
+        # Si no hay hora de salida, el trabajo es 0 (o pendiente de calcular)
+        if self.hora_salida is None:
+            return 0.0
+
         entrada = datetime.combine(self.fecha, self.hora_entrada)
         salida = datetime.combine(self.fecha, self.hora_salida)
         
@@ -158,7 +162,6 @@ class Fichaje(db.Model):
         diferencia = salida - entrada
         horas_totales = diferencia.total_seconds() / 3600
         
-        # Restar la pausa (convertida de minutos a horas)
         horas_pausa = (self.pausa or 0) / 60
         
         return max(0, horas_totales - horas_pausa)

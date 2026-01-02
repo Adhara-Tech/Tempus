@@ -80,7 +80,8 @@ def listar():
         Fichaje.es_actual == True,
         Fichaje.tipo_accion != 'eliminacion',
         Fichaje.fecha >= fecha_inicio,
-        Fichaje.fecha <= fecha_fin
+        Fichaje.fecha <= fecha_fin,
+        Fichaje.hora_salida.isnot(None)
     ).scalar() or 0
     
     total_fichajes_mes = query.count()
