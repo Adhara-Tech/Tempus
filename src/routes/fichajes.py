@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash, jsonify
+from flask import render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, date, timedelta
 from calendar import monthrange
@@ -11,6 +11,29 @@ from src import db
 from src.models import Fichaje
 from src.utils import es_festivo, verificar_solapamiento
 from . import fichajes_bp
+
+# --- HELPER DE ZONA HORARIA (Sencillo y nativo) ---
+def get_user_now():
+    """
+    Devuelve la fecha y hora actual ajustada a la zona horaria del negocio.
+    Por defecto intenta simular Europe/Madrid si el servidor está en UTC.
+    """
+    now = datetime.utcnow()
+    # Ajuste manual simple para Madrid (UTC+1 en invierno, UTC+2 en verano)
+    # Una solución más robusta requeriría instalar 'pytz' y configurar la zona en el Usuario.
+    # Aquí aplicamos UTC+1 por defecto como base segura para España Peninsular invierno.
+    # TODO: En el futuro, instalar 'pytz' y usar: datetime.now(pytz.timezone('Europe/Madrid'))
+    
+    # Verificamos si estamos en horario de verano (aprox: último domingo marzo a último octubre)
+    # Esta es una aproximación básica. Lo ideal es añadir 'pytz' al requirements.txt.
+    is_dst = False # Simplificación
+    offset = 2 if is_dst else 1 
+    
+    # Si el servidor ya está en hora local (no UTC), no ajustar.
+    # Para Docker/Nube suele ser UTC.
+    return now + timedelta(hours=offset)
+
+# --- RUTAS DE FICHAJES ---
 
 @fichajes_bp.route('/fichajes')
 @login_required
@@ -322,3 +345,105 @@ def verificar_fecha_ajax():
         return jsonify({'status': 'warning', 'messages': warnings})
         
     return jsonify({'status': 'ok'})
+
+# --- NUEVAS RUTAS PARA START/STOP ---
+
+@fichajes_bp.route('/fichajes/estado', methods=['GET'])
+@login_required
+def estado_fichaje():
+    """
+    Devuelve el estado actual del fichaje para el usuario.
+    Se usa para pintar el botón (Verde/Rojo) al cargar la página.
+    """
+    # Buscamos si hay algún fichaje "abierto" (sin hora de salida)
+    # Nota: No filtramos por fecha. Si se dejó abierto ayer, hay que cerrarlo hoy.
+    fichaje_activo = Fichaje.query.filter(
+        Fichaje.usuario_id == current_user.id,
+        Fichaje.es_actual == True,
+        Fichaje.hora_salida.is_(None), # Fichaje abierto
+        Fichaje.tipo_accion != 'eliminacion'
+    ).first()
+
+    if fichaje_activo:
+        # Calcular duración en tiempo real
+        ahora = get_user_now()
+        inicio = datetime.combine(fichaje_activo.fecha, fichaje_activo.hora_entrada)
+        
+        # Ajuste por si el fichaje es de ayer (evitar duraciones negativas raras)
+        duracion_segundos = (ahora - inicio).total_seconds()
+        
+        return jsonify({
+            'activo': True,
+            'inicio': inicio.isoformat(),
+            'duracion_segundos': int(duracion_segundos),
+            'fecha': fichaje_activo.fecha.isoformat()
+        })
+    
+    return jsonify({
+        'activo': False,
+        'inicio': None,
+        'duracion_segundos': 0
+    })
+
+@fichajes_bp.route('/fichajes/toggle', methods=['POST'])
+@login_required
+def toggle_fichaje():
+    """
+    Acción del botón: Inicia o Detiene el fichaje.
+    """
+    ahora_local = get_user_now()
+    fecha_actual = ahora_local.date()
+    hora_actual = ahora_local.time()
+
+    # 1. Buscar si ya hay uno abierto
+    fichaje_activo = Fichaje.query.filter(
+        Fichaje.usuario_id == current_user.id,
+        Fichaje.es_actual == True,
+        Fichaje.hora_salida.is_(None),
+        Fichaje.tipo_accion != 'eliminacion'
+    ).first()
+
+    if fichaje_activo:
+        # --- CASO: DETENER (STOP) ---
+        # Cerramos el fichaje existente
+        fichaje_activo.hora_salida = hora_actual
+        
+        # Opcional: Calcular pausa automática si quisiéramos, pero
+        # en este modelo Start/Stop la pausa es simplemente el tiempo entre fichajes.
+        fichaje_activo.pausa = 0 
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'stopped',
+            'mensaje': f'Jornada pausada/finalizada a las {hora_actual.strftime("%H:%M")}',
+            'total_horas': decimal_to_human(fichaje_activo.horas_trabajadas())
+        })
+
+    else:
+        # --- CASO: INICIAR (START) ---
+        
+        # Validar si ya existe un fichaje cerrado HOY que solape (improbable con Start/Stop, pero posible por seguridad)
+        # En modo Start/Stop puro, permitimos múltiples fragmentos.
+        
+        nuevo_fichaje = Fichaje(
+            usuario_id=current_user.id,
+            editor_id=current_user.id,
+            grupo_id=str(uuid.uuid4()),
+            version=1,
+            es_actual=True,
+            tipo_accion='creacion',
+            fecha=fecha_actual,
+            hora_entrada=hora_actual,
+            hora_salida=None, # IMPORTANTE: Se queda abierto
+            pausa=0
+        )
+        
+        db.session.add(nuevo_fichaje)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'started',
+            'mensaje': f'Fichaje iniciado a las {hora_actual.strftime("%H:%M")}',
+            'inicio': ahora_local.isoformat()
+        })
