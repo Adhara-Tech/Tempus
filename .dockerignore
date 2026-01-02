@@ -38,4 +38,6 @@ Thumbs.db
 
 # Excluir otros archivos de la app
 logs/
+logs/*
 migrations/
+migrations/*
