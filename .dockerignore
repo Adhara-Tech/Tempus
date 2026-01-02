@@ -35,3 +35,7 @@ README.md
 # Excluir archivos del sistema operativo
 .DS_Store
 Thumbs.db
+
+# Excluir otros archivos de la app
+logs/
+migrations/
