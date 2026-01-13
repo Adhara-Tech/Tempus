@@ -1,3 +1,6 @@
+{# src/templates/components/timeline.html #}
+
+{% if not config.HIDE_TIMELINE %}
 <style>
     .timeline-wrapper {
         position: relative;
@@ -149,12 +152,19 @@
         <div id="currentTimeLabel" class="current-time-label" style="display: none;">AHORA</div>
     </div>
 </div>
+{% endif %}
 
 <script>
     /**
      * Timeline Widget Logic
      */
     function initTimeline(inputDateId = null, inputStartId = null, inputEndId = null, currentFichajeId = null) {
+        // Si está oculto por configuración, salimos inmediatamente
+        {% if config.HIDE_TIMELINE %}
+        console.log('Timeline deshabilitado por configuración (HIDE_TIMELINE).');
+        return;
+        {% endif %}
+
         let refreshInterval;
         const container = document.getElementById('timelineBlocks');
         const previewContainer = document.getElementById('timelinePreview');
