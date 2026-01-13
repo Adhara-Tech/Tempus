@@ -209,6 +209,7 @@ class SolicitudVacaciones(db.Model):
         """
         Calcula dinámicamente cuántos días de adelanto supone esta solicitud
         basándose en el saldo actual del usuario para el año de la solicitud.
+        Solo devuelve adelanto si hay un saldo configurado (> 0) que se excede.
         """
         if not self.usuario:
             return 0
@@ -218,8 +219,8 @@ class SolicitudVacaciones(db.Model):
         anio = self.fecha_inicio.year
         disponible = self.usuario.dias_vacaciones_disponibles(anio)
         
-        # Si pide más de lo que tiene, la diferencia es el adelanto
-        if self.dias_solicitados > disponible:
+        # Solo calcular adelanto si hay saldo configurado (> 0) y se excede
+        if disponible > 0 and self.dias_solicitados > disponible:
             return self.dias_solicitados - disponible
             
         return 0
