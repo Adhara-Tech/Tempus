@@ -90,6 +90,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = os.environ.get('SQLALCHEMY_TRACK_
 app.config['GOOGLE_CALENDAR_ID'] = os.environ.get('GOOGLE_CALENDAR_ID', 'primary')
 app.config['ENABLE_MANUAL_ENTRY'] = os.environ.get('ENABLE_MANUAL_ENTRY', 'True').lower() == 'true'
 app.config['MFA_ENABLED'] = os.environ.get('MFA_ENABLED', 'True').lower() == 'true'
+app.config['HIDE_TIMELINE'] = os.environ.get('HIDE_TIMELINE', 'False').lower() == 'true'
 app.config['DEFAULT_ADMIN_EMAIL'] = os.environ.get('DEFAULT_ADMIN_EMAIL', 'admin@example.com')
 app.config['DEFAULT_ADMIN_INITIAL_PASSWORD'] = os.environ.get('DEFAULT_ADMIN_INITIAL_PASSWORD', 'admin123')
 
@@ -113,7 +114,7 @@ app.register_blueprint(google_bp, url_prefix="/login")
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=["5 per second", "30 per minute", "3000 per day"],
+    default_limits=["5 per second", "30 per minute", "5000 per day"],
     storage_uri="memory://"
 )
 
