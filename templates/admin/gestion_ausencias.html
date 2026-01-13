@@ -80,7 +80,6 @@
                         <th>Días</th>
                         <th>Estado</th>
                         <th>Motivo</th>
-                        <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -118,14 +117,10 @@
                                 {{ item.motivo or '-' }}
                             </small>
                         </td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-outline-secondary" disabled><i
-                                    class="bi bi-three-dots"></i></button>
-                        </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="text-center py-4 text-muted">
+                        <td colspan="7" class="text-center py-4 text-muted">
                             No se encontraron ausencias con estos filtros.
                         </td>
                     </tr>
