@@ -11,6 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 4. Copiar todo el código de la aplicación
 COPY . .
 
+# 4.5 Copiar service account si existe (opcional para Calendar)
+COPY service-account.json* ./
+
 # 5. Exponer el puerto en el que correrá Gunicorn
 EXPOSE 5000
 

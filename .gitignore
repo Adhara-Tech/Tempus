@@ -27,3 +27,8 @@ Thumbs.db
 
 # Archivos de desarrollo
 .vscode/
+
+# Google Calendar Credentials
+service-account.json
+credentials.json
+token.pickle

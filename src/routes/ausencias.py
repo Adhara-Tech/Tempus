@@ -6,6 +6,7 @@ import uuid
 from src import db
 from src.models import SolicitudVacaciones, SolicitudBaja, TipoAusencia, Usuario, SaldoVacaciones
 from src.utils import calcular_dias_habiles, verificar_solapamiento, simular_modificacion_vacaciones
+from src.google_calendar import crear_evento_vacaciones, crear_evento_baja, eliminar_evento
 from . import ausencias_bp
 
 # -------------------------------------------------------------------------
@@ -508,6 +509,12 @@ def responder_solicitud(id, accion):
                 # El usuario ya fue avisado al pedir. Aquí ejecutamos.
             
             solicitud.estado = 'aprobada'
+            
+            # Sincronizar con Calendar Compartido
+            event_id = crear_evento_vacaciones(solicitud)
+            if event_id:
+                solicitud.google_event_id = event_id
+            
             flash(f'Solicitud de vacaciones aprobada. Días descontados.', 'success')
 
         # --- CASO B: MODIFICACIÓN O CANCELACIÓN (Versionado) ---
@@ -524,6 +531,10 @@ def responder_solicitud(id, accion):
             if v1:
                 v1.es_actual = False
                 dias_reintegro = v1.dias_solicitados
+                
+                # Eliminar evento viejo del Calendar
+                if v1.google_event_id:
+                    eliminar_evento(v1.google_event_id)
             
             # 3. Activar V2 (Esta solicitud)
             solicitud.estado = 'aprobada'
@@ -533,8 +544,15 @@ def responder_solicitud(id, accion):
             coste_nuevo = 0
             if solicitud.tipo_accion == 'modificacion':
                 coste_nuevo = solicitud.dias_solicitados
+                
+                # Crear evento nuevo en Calendar
+                event_id = crear_evento_vacaciones(solicitud)
+                if event_id:
+                    solicitud.google_event_id = event_id
+                    
             elif solicitud.tipo_accion == 'cancelacion':
                 coste_nuevo = 0 # Cancelar implica que no se consumen días
+                # No crear evento (es una cancelación)
             
             anio = solicitud.fecha_inicio.year
             saldo = SaldoVacaciones.query.filter_by(usuario_id=solicitud.usuario_id, anio=anio).first()
@@ -598,6 +616,12 @@ def responder_baja(id, accion):
     # Procesar Acción
     if accion == 'aprobar':
         solicitud.estado = 'aprobada'
+        
+        # Sincronizar con Calendar Compartido
+        event_id = crear_evento_baja(solicitud)
+        if event_id:
+            solicitud.google_event_id = event_id
+        
         flash(f'Baja/Permiso de {solicitud.usuario.nombre} aprobada.', 'success')
         
     elif accion == 'rechazar':

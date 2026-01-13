@@ -82,3 +82,31 @@ Al iniciar por primera vez, se crea automáticamente un usuario administrador:
     - Guarda los cambios
 
 3. Reinicia tu servidor Flask después de hacer cambios en `.env`
+
+### 4. Integración con Google Calendar (Opcional)
+
+La aplicación puede sincronizar automáticamente las vacaciones y bajas aprobadas a un calendario compartido de Google visible por todos los empleados.
+
+**Opción A: Service Account (Producción)**
+
+1. Crea un Service Account en [Google Cloud Console](https://console.cloud.google.com/iam-admin/serviceaccounts)
+2. Descarga las credenciales JSON → `service-account.json`
+3. Crea un calendario compartido en Google Calendar
+4. Comparte el calendario con el service account (permisos: "Hacer cambios")
+5. Configura en `.env`:
+   ```bash
+   GOOGLE_CALENDAR_ID=abc123@group.calendar.google.com
+   GOOGLE_SERVICE_ACCOUNT_FILE=service-account.json
+   ```
+
+**Opción B: OAuth Usuario Admin (Desarrollo)**
+
+1. Habilita Calendar API en Google Cloud Console
+2. Crea credenciales OAuth → `credentials.json`
+3. Ejecuta: `python scripts/authenticate_calendar.py`
+4. Configura en `.env`:
+   ```bash
+   GOOGLE_CALENDAR_ID=abc123@group.calendar.google.com
+   ```
+
+**Ver documentación completa:** [`docs/GOOGLE_CALENDAR_SETUP.md`](docs/GOOGLE_CALENDAR_SETUP.md)
