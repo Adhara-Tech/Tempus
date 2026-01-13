@@ -79,6 +79,10 @@
                             {% endif %}
                         </td>
                         <td>
+                            <a href="{{ url_for('admin.admin_editar_tipo_ausencia', id=tipo.id) }}"
+                                class="btn btn-sm btn-outline-primary me-1" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
                             <form method="POST" action="{{ url_for('admin.admin_toggle_tipo_ausencia', id=tipo.id) }}"
                                 class="d-inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

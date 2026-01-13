@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Tipo de Ausencia{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-pencil-square"></i> Editar Tipo de Ausencia</h1>
+    <a href="{{ url_for('admin.admin_tipos_ausencia') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" class="form-control" name="nombre" value="{{ tipo.nombre }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Días Máximos</label>
+                    <input type="number" class="form-control" name="max_dias" value="{{ tipo.max_dias }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Cómputo</label>
+                    <select class="form-select" name="tipo_dias">
+                        <option value="naturales" {% if tipo.tipo_dias=='naturales' %}selected{% endif %}>Días Naturales
+                        </option>
+                        <option value="habiles" {% if tipo.tipo_dias=='habiles' %}selected{% endif %}>Días Hábiles
+                        </option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" class="form-control" name="descripcion" value="{{ tipo.descripcion or '' }}"
+                        placeholder="Descripción opcional...">
+                </div>
+                <div class="col-12">
+                    <hr>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Guardar Cambios
+                    </button>
+                    <a href="{{ url_for('admin.admin_tipos_ausencia') }}" class="btn btn-secondary">
+                        Cancelar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

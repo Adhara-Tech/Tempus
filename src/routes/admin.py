@@ -13,9 +13,9 @@ from . import admin_bp
 @admin_bp.route('/admin/usuarios')
 @admin_required
 def admin_usuarios():
-    # MODIFICADO: Solo mostrar usuarios activos (soft delete)
+    # MODIFICADO: Solo mostrar usuarios activos (soft delete), ordenados alfabéticamente
     page = request.args.get('page', 1, type=int)
-    usuarios = Usuario.query.filter_by(activo=True).paginate(page=page, per_page=20)
+    usuarios = Usuario.query.filter_by(activo=True).order_by(Usuario.nombre).paginate(page=page, per_page=20)
     return render_template('admin/usuarios.html', usuarios=usuarios)
 
 @admin_bp.route('/admin/api/usuarios/buscar')
@@ -299,6 +299,35 @@ def admin_eliminar_festivo(id):
     flash('Festivo eliminado correctamente', 'success')
     return redirect(url_for('admin.admin_festivos'))
 
+@admin_bp.route('/admin/festivos/editar/<int:id>', methods=['GET', 'POST'])
+@admin_required
+def admin_editar_festivo(id):
+    festivo = Festivo.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        fecha_str = request.form.get('fecha')
+        descripcion = request.form.get('descripcion')
+        
+        try:
+            nueva_fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        except ValueError:
+            flash('Fecha inválida', 'danger')
+            return render_template('admin/editar_festivo.html', festivo=festivo)
+        
+        # Verificar fecha única (excepto la propia)
+        existente = Festivo.query.filter_by(fecha=nueva_fecha).first()
+        if existente and existente.id != id:
+            flash('Ya existe un festivo para esa fecha', 'danger')
+        else:
+            festivo.fecha = nueva_fecha
+            festivo.descripcion = descripcion
+            db.session.commit()
+            invalidar_cache_festivos()
+            flash('Festivo actualizado correctamente', 'success')
+            return redirect(url_for('admin.admin_festivos'))
+    
+    return render_template('admin/editar_festivo.html', festivo=festivo)
+
 # --- TIPOS DE AUSENCIA ---
 @admin_bp.route('/admin/tipos-ausencia', methods=['GET', 'POST'])
 @admin_required
@@ -342,6 +371,36 @@ def admin_toggle_tipo_ausencia(id):
     tipo_msg = 'success' if tipo.activo else 'warning'
     flash(f'Tipo de ausencia "{tipo.nombre}" {estado}.', tipo_msg)
     return redirect(url_for('admin.admin_tipos_ausencia'))
+
+@admin_bp.route('/admin/tipos-ausencia/editar/<int:id>', methods=['GET', 'POST'])
+@admin_required
+def admin_editar_tipo_ausencia(id):
+    tipo = TipoAusencia.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        try:
+            max_dias = int(request.form.get('max_dias'))
+        except (ValueError, TypeError):
+            max_dias = 365
+            
+        tipo_dias = request.form.get('tipo_dias', 'naturales')
+        descripcion = request.form.get('descripcion', '')
+        
+        # Verificar nombre único (excepto el propio)
+        existente = TipoAusencia.query.filter_by(nombre=nombre).first()
+        if existente and existente.id != id:
+            flash('Ya existe otro tipo de ausencia con ese nombre', 'danger')
+        else:
+            tipo.nombre = nombre
+            tipo.max_dias = max_dias
+            tipo.tipo_dias = tipo_dias
+            tipo.descripcion = descripcion
+            db.session.commit()
+            flash('Tipo de ausencia actualizado', 'success')
+            return redirect(url_for('admin.admin_tipos_ausencia'))
+    
+    return render_template('admin/editar_tipo_ausencia.html', tipo=tipo)
 
 # --- RESUMEN ---
 @admin_bp.route('/admin/resumen')

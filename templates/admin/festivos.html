@@ -84,6 +84,11 @@
                             {% endif %}
                         </td>
                         <td>
+                            <a href="{{ url_for('admin.admin_editar_festivo', id=festivo.id) }}"
+                                class="btn btn-sm btn-outline-primary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+
                             <!-- ✅ NUEVO: Toggle archivar/desarchivar -->
                             <form method="POST" action="{{ url_for('admin.admin_toggle_festivo', id=festivo.id) }}"
                                 style="display:inline;">
