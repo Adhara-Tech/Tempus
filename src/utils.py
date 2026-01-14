@@ -58,6 +58,75 @@ def calcular_dias_habiles(fecha_inicio, fecha_fin):
         
     return dias_habiles
 
+def recalcular_vacaciones_por_festivo(fecha_festivo):
+    """
+    Recalcula los días de vacaciones para todas las solicitudes aprobadas
+    que se solapen con la fecha del festivo modificado.
+    
+    Esto se debe llamar cuando:
+    - Se añade un nuevo festivo
+    - Se activa/desactiva un festivo
+    - Se elimina un festivo
+    - Se cambia la fecha de un festivo
+    
+    Args:
+        fecha_festivo (date): Fecha del festivo que ha cambiado
+        
+    Returns:
+        int: Número de solicitudes de vacaciones afectadas
+    """
+    from src import db
+    
+    # Invalidar cache ANTES de recalcular (para que calcular_dias_habiles use el nuevo estado)
+    invalidar_cache_festivos()
+    
+    # Buscar todas las solicitudes de vacaciones APROBADAS que incluyan esta fecha
+    vacaciones_afectadas = SolicitudVacaciones.query.filter(
+        SolicitudVacaciones.estado == 'aprobada',
+        SolicitudVacaciones.es_actual == True,
+        SolicitudVacaciones.tipo_accion != 'cancelacion',
+        SolicitudVacaciones.fecha_inicio <= fecha_festivo,
+        SolicitudVacaciones.fecha_fin >= fecha_festivo
+    ).all()
+    
+    count_actualizadas = 0
+    
+    for vac in vacaciones_afectadas:
+        # Recalcular días laborables con el nuevo estado de festivos
+        dias_nuevos = calcular_dias_habiles(vac.fecha_inicio, vac.fecha_fin)
+        dias_originales = vac.dias_solicitados
+        
+        # Si no hay cambio, continuar
+        if dias_nuevos == dias_originales:
+            continue
+        
+        dias_diff = dias_nuevos - dias_originales
+        
+        # Actualizar la solicitud
+        vac.dias_solicitados = dias_nuevos
+        
+        # Actualizar el saldo del año correspondiente
+        anio = vac.fecha_inicio.year
+        saldo = SaldoVacaciones.query.filter_by(
+            usuario_id=vac.usuario_id,
+            anio=anio
+        ).first()
+        
+        if saldo:
+            # Ajustar dias_disfrutados
+            # Si dias_diff > 0: se añadió un día laborable (festivo eliminado) → consumir más
+            # Si dias_diff < 0: se quitó un día laborable (festivo añadido) → devolver días
+            saldo.dias_disfrutados += dias_diff
+        
+        count_actualizadas += 1
+    
+    # Commit de todos los cambios
+    if count_actualizadas > 0:
+        db.session.commit()
+    
+    return count_actualizadas
+
+
 def calcular_dias_laborables(fecha_inicio, fecha_fin):
     """
     Calcula los días laborables entre dos fechas.
