@@ -193,16 +193,18 @@ def cancelar_vacaciones(id):
         db.session.add(nueva_solicitud)
         db.session.commit()
         
-        # Enviar Email al Aprobador
-        aprobador = None
+        # Enviar Email a TODOS los Aprobadores
+        aprobadores = []
         if current_user.aprobadores:
-            aprobador = current_user.aprobadores[0].aprobador
+            aprobadores = [rel.aprobador for rel in current_user.aprobadores]
         else:
-            aprobador = Usuario.query.filter_by(rol='admin').first()
+            admin = Usuario.query.filter_by(rol='admin').first()
+            if admin:
+                aprobadores = [admin]
             
-        if aprobador:
+        if aprobadores:
             from src.email_service import enviar_email_solicitud
-            enviar_email_solicitud(aprobador, current_user, nueva_solicitud)
+            enviar_email_solicitud(aprobadores, current_user, nueva_solicitud)
 
         flash('Solicitud de cancelación enviada para aprobación.', 'info')
         return redirect(url_for('ausencias.listar_vacaciones'))
@@ -292,18 +294,18 @@ def modificar_vacaciones(id):
         db.session.add(nueva_version)
         db.session.commit()
         
-        # Enviar Email al Aprobador (si tiene)
-        # Buscamos aprobador asignado. Si no hay, a los admins.
-        # (Lógica simplificada: Si no hay aprobador directo, usar admin genérico o primer admin)
-        aprobador = None
+        # Enviar Email a TODOS los Aprobadores
+        aprobadores = []
         if current_user.aprobadores:
-            aprobador = current_user.aprobadores[0].aprobador
+            aprobadores = [rel.aprobador for rel in current_user.aprobadores]
         else:
-            aprobador = Usuario.query.filter_by(rol='admin').first()
+            admin = Usuario.query.filter_by(rol='admin').first()
+            if admin:
+                aprobadores = [admin]
             
-        if aprobador:
+        if aprobadores:
             from src.email_service import enviar_email_solicitud
-            enviar_email_solicitud(aprobador, current_user, nueva_version)
+            enviar_email_solicitud(aprobadores, current_user, nueva_version)
         
         flash('Solicitud de modificación enviada correctamente. Tu responsable ha sido notificado.', 'success')
         return redirect(url_for('ausencias.listar_vacaciones'))

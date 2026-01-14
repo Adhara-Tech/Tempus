@@ -61,8 +61,16 @@ def enviar_email_solicitud(aprobador, solicitante, solicitud):
         recipients=[aprobador.email]
     )
     
+    
+    # Construir lista de aprobadores para el mensaje
+    if len(aprobadores) > 1:
+        nombres_aprobadores = ', '.join([a.nombre for a in aprobadores])
+        nota_aprobadores = f'\n(Notificados: {nombres_aprobadores})\n'
+    else:
+        nota_aprobadores = ''
+    
     msg.body = f'''
-Hola {aprobador.nombre},
+Hola {aprobadores[0].nombre},
 
 {solicitante.nombre} ha solicitado vacaciones:
 
@@ -70,7 +78,7 @@ Hola {aprobador.nombre},
 - Hasta: {solicitud.fecha_fin}
 - Días solicitados: {solicitud.dias_solicitados}
 - Motivo: {solicitud.motivo or 'No especificado'}
-
+{nota_aprobadores}
 Por favor, revisa y responde a esta solicitud en el sistema.
 
 Saludos,
