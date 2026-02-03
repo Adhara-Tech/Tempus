@@ -142,6 +142,16 @@ def solicitar_vacaciones():
         
         db.session.add(solicitud)
         db.session.commit()
+
+        # Enviar Email a los aprobadores del usuario objetivo
+        aprobadores = [rel.aprobador for rel in target_user.aprobadores]
+        if not aprobadores:
+            admin = Usuario.query.filter_by(rol='admin').first()
+            if admin: aprobadores = [admin]
+            
+        if aprobadores:
+            from src.email_service import enviar_email_solicitud
+            enviar_email_solicitud(aprobadores, target_user, solicitud)
         
         # Mensajes Feedback
         if saldo_proyectado < 0:
