@@ -301,7 +301,7 @@ def eliminar(id):
         tipo_accion='eliminacion',
         motivo_rectificacion="Eliminado por el usuario/admin",
         fecha=fichaje_actual.fecha,
-        fecha_creacion=get_user_now()
+        fecha_creacion=get_user_now(),
         # Mantenemos datos originales para saber qué se borró
         hora_entrada=fichaje_actual.hora_entrada,
         hora_salida=fichaje_actual.hora_salida,
