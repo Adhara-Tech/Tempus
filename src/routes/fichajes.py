@@ -184,7 +184,8 @@ def crear():
             fecha=fecha,
             hora_entrada=hora_entrada,
             hora_salida=hora_salida,
-            pausa=pausa
+            pausa=pausa,
+            fecha_creacion=get_user_now()
         )
         
         db.session.add(fichaje)
@@ -256,7 +257,8 @@ def editar(id):
             fecha=datetime.strptime(request.form.get('fecha'), '%Y-%m-%d').date(),
             hora_entrada=datetime.strptime(request.form.get('hora_entrada'), '%H:%M').time(),
             hora_salida=datetime.strptime(request.form.get('hora_salida'), '%H:%M').time(),
-            pausa=pausa
+            pausa=pausa,
+            fecha_creacion=get_user_now()
         )
         
         db.session.add(nuevo_fichaje)
@@ -299,6 +301,7 @@ def eliminar(id):
         tipo_accion='eliminacion',
         motivo_rectificacion="Eliminado por el usuario/admin",
         fecha=fichaje_actual.fecha,
+        fecha_creacion=get_user_now()
         # Mantenemos datos originales para saber qué se borró
         hora_entrada=fichaje_actual.hora_entrada,
         hora_salida=fichaje_actual.hora_salida,
@@ -446,7 +449,8 @@ def toggle_fichaje():
             fecha=fecha_actual,
             hora_entrada=hora_actual,
             hora_salida=None, # IMPORTANTE: Se queda abierto
-            pausa=0
+            pausa=0,
+            fecha_creacion=ahora_local
         )
         
         db.session.add(nuevo_fichaje)
