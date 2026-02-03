@@ -100,7 +100,15 @@ def perfil():
 @main_bp.route('/cronograma')
 @login_required
 def cronograma():
-    solicitudes_vac = SolicitudVacaciones.query.filter_by(estado='aprobada', es_actual=True).all()
+
+    # Excluimos cancelaciones en vacaciones
+    solicitudes_vac = SolicitudVacaciones.query.filter(
+        SolicitudVacaciones.estado == 'aprobada',
+        SolicitudVacaciones.es_actual == True,
+        SolicitudVacaciones.tipo_accion != 'cancelacion'
+    ).all()
+
+    # Filtramos bajas por estado "aprobada"
     solicitudes_bajas = SolicitudBaja.query.filter_by(estado='aprobada', es_actual=True).all()
     
     eventos = []
