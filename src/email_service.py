@@ -44,8 +44,8 @@ def _send_async(app, msg):
 
 def enviar_email_solicitud(aprobadores, solicitante, solicitud):
     """
-    MODIFICADO: Ahora acepta una lista de objetos de usuario (aprobadores).
     Envía email de notificación de nueva solicitud a todos los responsables.
+    Adaptado para manejar tanto Vacaciones como Bajas.
     """
     # Extraer los correos de la lista de objetos recibida
     emails_destinatarios = [a.email for a in aprobadores]
@@ -53,11 +53,22 @@ def enviar_email_solicitud(aprobadores, solicitante, solicitud):
     if not emails_destinatarios:
         return
 
+    # Determinar tipo de solicitud para el texto
+    # Si tiene atributo 'tipo_ausencia', es una Baja/Ausencia
+    es_baja = hasattr(solicitud, 'tipo_ausencia')
+    if es_baja:
+        nombre_tipo = solicitud.tipo_ausencia.nombre if solicitud.tipo_ausencia else "Baja/Ausencia"
+        tipo_texto = f"ausencia ({nombre_tipo})"
+        asunto_tipo = "Ausencia/Baja"
+    else:
+        tipo_texto = "vacaciones"
+        asunto_tipo = "Vacaciones"
+
     # Construir lista de nombres para el cuerpo del mensaje
     nombres_aprobadores = ', '.join([a.nombre for a in aprobadores])
 
     msg = Message(
-        subject=f'Nueva solicitud de vacaciones de {solicitante.nombre}',
+        subject=f'Nueva solicitud de {asunto_tipo} de {solicitante.nombre}',
         sender=current_app.config['MAIL_DEFAULT_SENDER'],
         recipients=emails_destinatarios
     )
@@ -65,7 +76,7 @@ def enviar_email_solicitud(aprobadores, solicitante, solicitud):
     msg.body = f'''
 Hola,
 
-{solicitante.nombre} ha solicitado vacaciones:
+{solicitante.nombre} ha solicitado {tipo_texto}:
 
 - Desde: {solicitud.fecha_inicio}
 - Hasta: {solicitud.fecha_fin}
@@ -95,29 +106,43 @@ Sistema de Gestión de Fichajes
 
 def enviar_email_respuesta(usuario, solicitud):
     """
-    Envía email de notificación de respuesta a solicitud.
-    Usa ThreadPoolExecutor para envío asíncrono seguro.
+    Envía email de notificación de respuesta (aprobación/rechazo).
+    Funciona para Vacaciones y Bajas.
     """
-    estado_texto = "APROBADA" if solicitud.state == 'aprobada' else "RECHAZADA"
+    # Corregido: Usar .estado en lugar de .state
+    estado_texto = "APROBADA" if solicitud.estado == 'aprobada' else "RECHAZADA"
+    
+    # Determinar tipo de texto
+    es_baja = hasattr(solicitud, 'tipo_ausencia')
+    if es_baja:
+        nombre_tipo = solicitud.tipo_ausencia.nombre if solicitud.tipo_ausencia else "Ausencia"
+        tipo_texto = f"ausencia ({nombre_tipo})"
+    else:
+        tipo_texto = "vacaciones"
     
     msg = Message(
-        subject=f'Tu solicitud de vacaciones ha sido {estado_texto}',
+        subject=f'Tu solicitud de {tipo_texto} ha sido {estado_texto}',
         sender=current_app.config['MAIL_DEFAULT_SENDER'],
         recipients=[usuario.email]
     )
     
+    # Obtener nombre del aprobador de forma segura
+    nombre_aprobador = 'Sistema'
+    if solicitud.aprobador:
+        nombre_aprobador = solicitud.aprobador.nombre
+    
     msg.body = f'''
 Hola {usuario.nombre},
 
-Tu solicitud de vacaciones ha sido {estado_texto}.
+Tu solicitud de {tipo_texto} ha sido {estado_texto}.
 
 Detalles de la solicitud:
 - Desde: {solicitud.fecha_inicio}
 - Hasta: {solicitud.fecha_fin}
 - Días solicitados: {solicitud.dias_solicitados}
 - Estado: {estado_texto}
-- Respondida por: {solicitud.aprobador.nombre if solicitud.aprobador else 'Sistema'}
-- Fecha de respuesta: {solicitud.fecha_respuesta}
+- Respondida por: {nombre_aprobador}
+- Fecha de respuesta: {solicitud.fecha_respuesta or 'N/A'}
 {f"- Comentarios: {solicitud.comentarios}" if solicitud.comentarios else ""}
 
 Saludos,
@@ -135,6 +160,7 @@ Sistema de Gestión de Fichajes
             print(f"⚠️ Email callback error: {e}")
     
     future.add_done_callback(handle_email_result)
+
 
 def enviar_email_otp(usuario, codigo):
     """
