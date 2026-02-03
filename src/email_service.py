@@ -7,7 +7,7 @@ import atexit
 # Configuración Flask-Mail
 mail = Mail()
 
-# ✅ Executor global para gestionar threads de email
+# Executor global para gestionar threads de email
 # max_workers=3 permite enviar hasta 3 emails simultáneos
 email_executor = ThreadPoolExecutor(
     max_workers=3,
@@ -25,12 +25,7 @@ def init_mail(app):
     
     mail.init_app(app)
     
-    # ✅ Registrar shutdown del executor al cerrar la app
-    
-    # ✅ También registrar con atexit como backup
-    atexit.register(lambda: email_executor.shutdown(wait=False))
-    
-    # ✅ También registrar con atexit como backup
+    # Registrar shutdown del executor al cerrar la app
     atexit.register(lambda: email_executor.shutdown(wait=False))
 
 
@@ -45,32 +40,30 @@ def _send_async(app, msg):
             print(f"✅ Email enviado: {msg.subject} -> {msg.recipients}")
         except Exception as e:
             print(f"❌ Error enviando email: {e}")
-            # Opcional: Loggear a archivo o sistema de monitoring
-            # import logging
-            # logging.error(f"Email send failed: {e}", exc_info=True)
 
 
-def enviar_email_solicitud(aprobador, solicitante, solicitud):
+def enviar_email_solicitud(aprobadores, solicitante, solicitud):
     """
-    Envía email de notificación de nueva solicitud al aprobador.
-    Usa ThreadPoolExecutor para envío asíncrono seguro.
+    MODIFICADO: Ahora acepta una lista de objetos de usuario (aprobadores).
+    Envía email de notificación de nueva solicitud a todos los responsables.
     """
+    # Extraer los correos de la lista de objetos recibida
+    emails_destinatarios = [a.email for a in aprobadores]
+    
+    if not emails_destinatarios:
+        return
+
+    # Construir lista de nombres para el cuerpo del mensaje
+    nombres_aprobadores = ', '.join([a.nombre for a in aprobadores])
+
     msg = Message(
         subject=f'Nueva solicitud de vacaciones de {solicitante.nombre}',
         sender=current_app.config['MAIL_DEFAULT_SENDER'],
-        recipients=[aprobador.email]
+        recipients=emails_destinatarios
     )
     
-    
-    # Construir lista de aprobadores para el mensaje
-    if len(aprobadores) > 1:
-        nombres_aprobadores = ', '.join([a.nombre for a in aprobadores])
-        nota_aprobadores = f'\n(Notificados: {nombres_aprobadores})\n'
-    else:
-        nota_aprobadores = ''
-    
     msg.body = f'''
-Hola {aprobadores[0].nombre},
+Hola,
 
 {solicitante.nombre} ha solicitado vacaciones:
 
@@ -78,18 +71,19 @@ Hola {aprobadores[0].nombre},
 - Hasta: {solicitud.fecha_fin}
 - Días solicitados: {solicitud.dias_solicitados}
 - Motivo: {solicitud.motivo or 'No especificado'}
-{nota_aprobadores}
+
+Notificados: {nombres_aprobadores}
+
 Por favor, revisa y responde a esta solicitud en el sistema.
 
 Saludos,
 Sistema de Gestión de Fichajes
     '''
     
-    # ✅ Enviar usando el executor (gestiona threads automáticamente)
+    # Enviar usando el executor (gestiona threads automáticamente)
     app = current_app._get_current_object()
     future = email_executor.submit(_send_async, app, msg)
     
-    # Opcional: añadir callback para manejar errores
     def handle_email_result(fut):
         try:
             fut.result()  # Lanza excepción si hubo error
@@ -104,7 +98,7 @@ def enviar_email_respuesta(usuario, solicitud):
     Envía email de notificación de respuesta a solicitud.
     Usa ThreadPoolExecutor para envío asíncrono seguro.
     """
-    estado_texto = "APROBADA" if solicitud.estado == 'aprobada' else "RECHAZADA"
+    estado_texto = "APROBADA" if solicitud.state == 'aprobada' else "RECHAZADA"
     
     msg = Message(
         subject=f'Tu solicitud de vacaciones ha sido {estado_texto}',
@@ -130,7 +124,7 @@ Saludos,
 Sistema de Gestión de Fichajes
     '''
     
-    # ✅ Enviar usando el executor
+    # Enviar usando el executor
     app = current_app._get_current_object()
     future = email_executor.submit(_send_async, app, msg)
     
