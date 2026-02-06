@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 ? `¿Estás seguro de que deseas cancelar tu solicitud de vacaciones (${fechas})?`
                 : `¿Estás seguro de que deseas solicitar la cancelación de tus vacaciones aprobadas (${fechas})?\n\nEsta acción requerirá aprobación.`;
 
-            showConfirmModal(title, message, () => submitFormWithConfirm(form), 'danger', 'Cancelar');
+            showConfirmModal(title, message, () => submitFormWithConfirm(form), 'danger', 'Confirmar');
         });
     });
 
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 `¿Estás seguro de que deseas cancelar tu solicitud de baja/ausencia (${fechas})?`,
                 () => submitFormWithConfirm(form),
                 'danger',
-                'Cancelar'
+                'Confirmar'
             );
         });
     });

@@ -93,6 +93,7 @@ app.config['MFA_ENABLED'] = os.environ.get('MFA_ENABLED', 'True').lower() == 'tr
 app.config['HIDE_TIMELINE'] = os.environ.get('HIDE_TIMELINE', 'False').lower() == 'true'
 app.config['DEFAULT_ADMIN_EMAIL'] = os.environ.get('DEFAULT_ADMIN_EMAIL', 'admin@example.com')
 app.config['DEFAULT_ADMIN_INITIAL_PASSWORD'] = os.environ.get('DEFAULT_ADMIN_INITIAL_PASSWORD', 'admin123')
+app.config['TIMEZONE'] = os.environ.get('TIMEZONE', 'Europe/Madrid')
 
 # Configuración Scheduler
 app.config['SCHEDULER_API_ENABLED'] = True

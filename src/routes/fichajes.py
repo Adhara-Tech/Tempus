@@ -6,36 +6,33 @@ from sqlalchemy import func, desc, cast, Float
 from sqlalchemy.sql import extract
 from src.utils import es_festivo, verificar_solapamiento, verificar_solapamiento_fichaje, decimal_to_human
 import uuid
+import pytz
 
 from src import db
 from src.models import Fichaje
 from src.utils import es_festivo, verificar_solapamiento
 from . import fichajes_bp
 
-# --- HELPER DE ZONA HORARIA (Sencillo y nativo) ---
+# --- HELPER DE ZONA HORARIA (usa pytz para obtener la hora real) ---
 def get_user_now():
     """
-    Devuelve la fecha y hora actual ajustada a la zona horaria del negocio.
-    Por defecto intenta simular Europe/Madrid si el servidor está en UTC.
-    
-    IMPORTANTE: Esta función actualmente NO calcula DST (horario de verano).
-    Siempre aplica UTC+1. Para soporte completo de DST, instalar 'pytz'.
+    Devuelve la fecha y hora actual ajustada a la zona horaria configurada.
     """
-    now = datetime.utcnow()
-    # Ajuste manual simple para Madrid (UTC+1 en invierno, UTC+2 en verano)
-    # Una solución más robusta requeriría instalar 'pytz' y configurar la zona en el Usuario.
-    # TODO: En el futuro, instalar 'pytz' y usar: datetime.now(pytz.timezone('Europe/Madrid'))
+    # Obtener la zona horaria desde la configuración
+    tz_name = current_app.config.get('TIMEZONE', 'Europe/Madrid')
     
-    # NOTA: DST NO IMPLEMENTADO - Siempre usa UTC+1
-    # Para implementar DST correctamente, necesitarías:
-    # 1. Añadir 'pytz' a requirements.txt
-    # 2. Usar: datetime.now(pytz.timezone('Europe/Madrid'))
-    is_dst = False  # Hardcoded - DST not calculated
-    offset = 1  # Always UTC+1 (winter time for Spain)
+    try:
+        target_tz = pytz.timezone(tz_name)
+    except pytz.UnknownTimeZoneError:
+        # Fallback de seguridad si el nombre en el .env está mal escrito que soy un manospies
+        current_app.logger.error(f"Zona horaria desconocida: {tz_name}. Usando UTC.")
+        target_tz = pytz.utc
+
+    # Obtener la hora actual en esa zona
+    now_aware = datetime.now(target_tz)
     
-    # Si el servidor ya está en hora local (no UTC), no ajustar.
-    # Para Docker/Nube suele ser UTC.
-    return now + timedelta(hours=offset)
+    # Devolver como 'naive' (sin info de zona) para compatibilidad con BBDD
+    return now_aware.replace(tzinfo=None)
 
 # --- RUTAS DE FICHAJES ---
 
@@ -51,6 +48,9 @@ def listar():
     hoy = datetime.now()
     mes = request.args.get('mes', type=int, default=hoy.month)
     anio = request.args.get('anio', type=int, default=hoy.year)
+    anio_actual_real = hoy.year
+    anios_disponibles = list(range(anio_actual_real - 4, anio_actual_real + 2))
+    anios_disponibles.reverse()
     page = request.args.get('page', type=int, default=1)
     per_page = 50  # Mostrar 50 fichajes por página
 
@@ -121,6 +121,7 @@ def listar():
                          pagination=pagination,
                          mes_actual=mes, 
                          anio_actual=anio,
+                         anios_disponibles=anios_disponibles,
                          total_horas_mes=total_horas_mes,
                          total_fichajes_mes=total_fichajes_mes)
 
@@ -183,7 +184,8 @@ def crear():
             fecha=fecha,
             hora_entrada=hora_entrada,
             hora_salida=hora_salida,
-            pausa=pausa
+            pausa=pausa,
+            fecha_creacion=get_user_now()
         )
         
         db.session.add(fichaje)
@@ -255,7 +257,8 @@ def editar(id):
             fecha=datetime.strptime(request.form.get('fecha'), '%Y-%m-%d').date(),
             hora_entrada=datetime.strptime(request.form.get('hora_entrada'), '%H:%M').time(),
             hora_salida=datetime.strptime(request.form.get('hora_salida'), '%H:%M').time(),
-            pausa=pausa
+            pausa=pausa,
+            fecha_creacion=get_user_now()
         )
         
         db.session.add(nuevo_fichaje)
@@ -298,6 +301,7 @@ def eliminar(id):
         tipo_accion='eliminacion',
         motivo_rectificacion="Eliminado por el usuario/admin",
         fecha=fichaje_actual.fecha,
+        fecha_creacion=get_user_now(),
         # Mantenemos datos originales para saber qué se borró
         hora_entrada=fichaje_actual.hora_entrada,
         hora_salida=fichaje_actual.hora_salida,
@@ -445,7 +449,8 @@ def toggle_fichaje():
             fecha=fecha_actual,
             hora_entrada=hora_actual,
             hora_salida=None, # IMPORTANTE: Se queda abierto
-            pausa=0
+            pausa=0,
+            fecha_creacion=ahora_local
         )
         
         db.session.add(nuevo_fichaje)

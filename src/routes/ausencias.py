@@ -421,6 +421,16 @@ def solicitar_baja():
         
         db.session.add(solicitud)
         db.session.commit()
+
+        # Enviar Email a los aprobadores
+        aprobadores = [rel.aprobador for rel in target_user.aprobadores]
+        if not aprobadores:
+            admin = Usuario.query.filter_by(rol='admin').first()
+            if admin: aprobadores = [admin]
+            
+        if aprobadores:
+            from src.email_service import enviar_email_solicitud
+            enviar_email_solicitud(aprobadores, target_user, solicitud)
         
         msg_exito = f'Baja registrada y aprobada para {target_user.nombre}.' if es_admin_gestion else 'Baja/Permiso registrado correctamente.'
         flash(msg_exito, 'success')
@@ -665,4 +675,12 @@ def responder_baja(id, accion):
     solicitud.fecha_respuesta = datetime.utcnow()
     
     db.session.commit()
+
+    # Enviar email al usuario con el resultado
+    try:
+        from src.email_service import enviar_email_respuesta
+        enviar_email_respuesta(solicitud.usuario, solicitud)
+    except Exception as e:
+        print(f"Error enviando email notificación: {e}")
+
     return redirect(url_for('ausencias.aprobar_solicitudes'))
